@@ -48,6 +48,7 @@ class RestClient {
           ? '${root}ApiNewMMSDMobile/api/mobile/$methodName'
           : '$root/ApiNewMMSDMobile/api/mobile/$methodName',
     );
+    
     print(
       '[API] domain=${uri.host}:${uri.hasPort ? uri.port : (uri.scheme == 'https' ? 443 : 80)} '
       'hit=${uri.toString()} method=$methodName',

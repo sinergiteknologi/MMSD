@@ -1,7 +1,7 @@
 class AppConfig {
   static const String defaultServiceHost = 'api.sinergiteknologi.co.id';
   static const String defaultServiceBaseUrl =
-      'http://api.sinergiteknologi.co.id/ApiNewMMSDMobile';
+      'https://api.sinergiteknologi.co.id/ApiNewMMSDMobile';
   static const String dbServer = '100.120.64.117';
   static const String dbName = 'NewMMDacen';
   static const String getUserUrl =
@@ -14,12 +14,23 @@ class AppConfig {
   static String get playStoreUrl =>
       'https://play.google.com/store/apps/details?id=$androidPackageName';
 
+  static bool _isPrivateHost(String host) {
+    final value = host.toLowerCase();
+    return value == 'localhost' ||
+        value.startsWith('10.') ||
+        value.startsWith('127.') ||
+        value.startsWith('192.168.') ||
+        RegExp(r'^172\.(1[6-9]|2\d|3[0-1])\.').hasMatch(value);
+  }
+
   static String serviceUrl(String server) {
     final raw = server.trim();
-    if (raw.isEmpty) return 'http://$defaultServiceHost';
-    final uri = Uri.tryParse(raw.contains('://') ? raw : 'http://$raw');
-    if (uri == null || uri.host.isEmpty) return 'http://$defaultServiceHost';
-    final scheme = uri.scheme.isEmpty ? 'http' : uri.scheme;
+    if (raw.isEmpty) return 'https://$defaultServiceHost';
+    final uri = Uri.tryParse(raw.contains('://') ? raw : 'https://$raw');
+    if (uri == null || uri.host.isEmpty) return 'https://$defaultServiceHost';
+    final scheme = _isPrivateHost(uri.host)
+        ? (uri.scheme.isEmpty ? 'http' : uri.scheme)
+        : 'https';
     return '$scheme://${uri.host}';
   }
 
