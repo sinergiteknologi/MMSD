@@ -21,8 +21,17 @@ class ApiService {
   String get lastErrorMessage =>
       _client.lastFailure?.message ?? 'Layanan tidak memberikan respons.';
 
+  static const Map<String, String> _mobileDbConfig = {
+    'DB_SERVER': AppConfig.dbServer,
+    'DB_NAME': AppConfig.dbName,
+    'GETUSER_URL': AppConfig.getUserUrl,
+  };
+
   Future<String?> _call(String method, [Map<String, String>? params]) {
-    return _client.postJson(methodName: method, body: params);
+    return _client.postJson(
+      methodName: method,
+      body: {..._mobileDbConfig, ...?params},
+    );
   }
 
   Future<String?> _callAtUrl(
@@ -32,7 +41,7 @@ class ApiService {
   ]) {
     return _client.postJson(
       methodName: method,
-      body: params,
+      body: {..._mobileDbConfig, ...?params},
       requestUrl: url,
     );
   }
