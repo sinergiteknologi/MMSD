@@ -18,19 +18,47 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="MMSD - Mobile Sales Desk">
+  <meta name="theme-color" content="#12263A">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="new_mmsd_apps">
+  <meta name="apple-mobile-web-app-title" content="MMSD">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>new_mmsd_apps</title>
+  <title>MMSD</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    let mmsdDeferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      mmsdDeferredInstallPrompt = event;
+      document.dispatchEvent(new Event('mmsd-pwa-available'));
+    });
+    window.addEventListener('appinstalled', () => {
+      mmsdDeferredInstallPrompt = null;
+      document.dispatchEvent(new Event('mmsd-pwa-available'));
+    });
+    window.mmsdPwaCanPrompt = () => mmsdDeferredInstallPrompt !== null;
+    window.mmsdPwaIsInstalled = () =>
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+    window.mmsdPwaPromptInstall = async () => {
+      if (!mmsdDeferredInstallPrompt) return false;
+      mmsdDeferredInstallPrompt.prompt();
+      const choice = await mmsdDeferredInstallPrompt.userChoice;
+      mmsdDeferredInstallPrompt = null;
+      return !!choice && choice.outcome === 'accepted';
+    };
+    window.mmsdPwaOnAvailable = (callback) => {
+      document.addEventListener('mmsd-pwa-available', () => callback());
+    };
+  </script>
 </head>
 <body>
   <!--

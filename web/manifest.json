@@ -1,11 +1,11 @@
 {
-    "name": "new_mmsd_apps",
-    "short_name": "new_mmsd_apps",
+    "name": "MMSD",
+    "short_name": "MMSD",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
     "theme_color": "#12263A",
-    "description": "A new Flutter project.",
+    "description": "MMSD - Mobile Sales Desk",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

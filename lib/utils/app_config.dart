@@ -1,10 +1,10 @@
 class AppConfig {
-  static const String defaultServiceHost = 'implement.sinergiteknologi.co.id';
+  static const String defaultServiceHost = 'api.sinergiteknologi.co.id';
   // static const String defaultServiceHost = '127.0.0.1:3000';
   static const String dbServer = '100.120.64.117';
   static const String dbName = 'NewMMDacen';
   static const String getUserUrl =
-      'https://implement.sinergiteknologi.co.id/NewMMSDMobileServices/mobileservices.asmx';
+      'https://api.sinergiteknologi.co.id/NewMMSDMobileServices/mobileservices.asmx';
   static const String defaultCabang = '0001';
   static const int currentVersionCode = 117;
   static const String currentVersionName = '10.16';

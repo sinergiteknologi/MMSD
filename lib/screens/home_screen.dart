@@ -8,6 +8,7 @@ import '../providers/master_data_provider.dart';
 import '../providers/prospect_provider.dart';
 import '../providers/spk_provider.dart';
 import '../services/pref_service.dart';
+import '../services/pwa_install.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_status.dart';
 import '../utils/spk_list_action.dart';
@@ -33,6 +34,48 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _loggingOut = false;
+  bool _showPwaInstall = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncPwaInstall();
+    PwaInstall.onAvailable(_syncPwaInstall);
+  }
+
+  void _syncPwaInstall() {
+    if (!mounted) return;
+    setState(() => _showPwaInstall = PwaInstall.shouldShowInstall);
+  }
+
+  Future<void> _installPwa() async {
+    if (PwaInstall.canPrompt) {
+      final accepted = await PwaInstall.promptInstall();
+      if (!mounted) return;
+      if (accepted || PwaInstall.isInstalled) {
+        setState(() => _showPwaInstall = false);
+        return;
+      }
+    }
+    if (!mounted || !context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Install Aplikasi'),
+        content: const Text(
+          'Chrome/Android: ketuk menu ⋮ lalu pilih "Install app" atau '
+          '"Add to Home screen".\n\n'
+          'Safari/iPhone: ketuk Share lalu pilih "Add to Home Screen".',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
 
   String get _greeting {
     final hour = DateTime.now().hour;
@@ -50,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.pop(context);
     setState(() => _loggingOut = true);
     await context.read<AuthProvider>().logout();
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
       (_) => false,
@@ -321,6 +364,8 @@ class _HomeScreenState extends State<HomeScreen> {
               syncing: master.isSyncing,
               progress: master.syncProgress,
               onRefresh: () => _refresh(context),
+              showInstall: _showPwaInstall,
+              onInstall: _installPwa,
             ),
             Expanded(
               child: ListView(
@@ -375,6 +420,8 @@ class _HomeHeader extends StatelessWidget {
     required this.syncing,
     required this.progress,
     required this.onRefresh,
+    required this.showInstall,
+    required this.onInstall,
   });
 
   final String greeting;
@@ -383,6 +430,8 @@ class _HomeHeader extends StatelessWidget {
   final bool syncing;
   final double progress;
   final VoidCallback onRefresh;
+  final bool showInstall;
+  final VoidCallback onInstall;
 
   @override
   Widget build(BuildContext context) {
@@ -414,6 +463,15 @@ class _HomeHeader extends StatelessWidget {
                 ),
               ),
               const Spacer(),
+              if (showInstall)
+                IconButton(
+                  tooltip: 'Install Aplikasi',
+                  onPressed: onInstall,
+                  icon: const Icon(
+                    Icons.install_mobile_rounded,
+                    color: Colors.white,
+                  ),
+                ),
               IconButton(
                 onPressed: onRefresh,
                 icon: syncing
