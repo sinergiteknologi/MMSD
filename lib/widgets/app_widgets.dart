@@ -128,6 +128,7 @@ class AppTextField extends StatelessWidget {
     this.prefixIcon,
     this.suffix,
     this.readOnly = false,
+    this.onChanged,
   });
 
   final TextEditingController controller;
@@ -137,12 +138,14 @@ class AppTextField extends StatelessWidget {
   final IconData? prefixIcon;
   final Widget? suffix;
   final bool readOnly;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
       readOnly: readOnly,
+      onChanged: onChanged,
       obscureText: obscureText,
       keyboardType: keyboardType,
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),

@@ -1,6 +1,7 @@
 class AppConfig {
   static const String defaultServiceHost = 'api.sinergiteknologi.co.id';
-  // static const String defaultServiceHost = '127.0.0.1:3000';
+  static const String defaultServiceBaseUrl =
+      'http://api.sinergiteknologi.co.id/ApiNewMMSDMobile';
   static const String dbServer = '100.120.64.117';
   static const String dbName = 'NewMMDacen';
   static const String getUserUrl =
@@ -14,11 +15,12 @@ class AppConfig {
       'https://play.google.com/store/apps/details?id=$androidPackageName';
 
   static String serviceUrl(String server) {
-    var host = server.replaceAll(RegExp(r'^https?://'), '');
-    host = host.split('/').first;
-    if (host.isEmpty) host = defaultServiceHost;
-    if (!host.contains(':')) host = '$host:3000';
-    return 'http://$host';
+    final raw = server.trim();
+    if (raw.isEmpty) return 'http://$defaultServiceHost';
+    final uri = Uri.tryParse(raw.contains('://') ? raw : 'http://$raw');
+    if (uri == null || uri.host.isEmpty) return 'http://$defaultServiceHost';
+    final scheme = uri.scheme.isEmpty ? 'http' : uri.scheme;
+    return '$scheme://${uri.host}';
   }
 
   static String defaultServiceUrl() => serviceUrl(defaultServiceHost);

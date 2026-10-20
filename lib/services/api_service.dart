@@ -13,7 +13,7 @@ class ApiService {
   }
 
   void updateBaseUrl(String url) {
-    _client.baseUrl = url.contains('://') ? url : AppConfig.serviceUrl(url);
+    _client.baseUrl = AppConfig.serviceUrl(url);
   }
 
   String get bisnis => _bisnis;

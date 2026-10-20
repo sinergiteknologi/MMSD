@@ -63,6 +63,9 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
   bool _finding = false;
   bool _searched = false;
   bool _showForm = false;
+  bool _fgocFinding = false;
+  bool _fgocSearched = false;
+  bool _fgocShowForm = false;
   List<_FoundCustomer> _customers = [];
   List<Map<String, String>> _fgocHits = [];
   String _selectedId = '';
@@ -138,12 +141,26 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
   Future<void> _searchFGOC() async {
     final user = context.read<AuthProvider>().user;
     if (user == null || _fgocName.text.trim().isEmpty) return;
+    setState(() {
+      _fgocFinding = true;
+      _fgocSearched = false;
+      _fgocShowForm = false;
+      _fgocHits = [];
+      _fgocId = '';
+      _fgocPhone.clear();
+      _fgocPosition.clear();
+    });
     final rows = await context.read<MasterDataProvider>().searchFGOC(
           branchCode: user.busCode,
           like: _fgocName.text.trim(),
         );
     if (!mounted) return;
-    setState(() => _fgocHits = rows);
+    setState(() {
+      _fgocFinding = false;
+      _fgocSearched = true;
+      _fgocHits = rows;
+      if (rows.isEmpty) _fgocShowForm = true;
+    });
   }
 
   void _selectFGOC(Map<String, String> row) {
@@ -153,6 +170,24 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
       _fgocPhone.text = row['Pref3'] ?? _fgocPhone.text;
       _fgocPosition.text = row['Pref4'] ?? _fgocPosition.text;
       _fgocHits = [];
+      _fgocShowForm = true;
+    });
+  }
+
+  void _onFGOCNameChanged(String _) {
+    if (_fgocId.isEmpty &&
+        !_fgocSearched &&
+        _fgocHits.isEmpty &&
+        !_fgocShowForm) {
+      return;
+    }
+    setState(() {
+      _fgocId = '';
+      _fgocHits = [];
+      _fgocSearched = false;
+      _fgocShowForm = false;
+      _fgocPhone.clear();
+      _fgocPosition.clear();
     });
   }
 
@@ -179,9 +214,20 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
     final user = context.read<AuthProvider>().user;
     if (user == null) return;
     if (_company) {
-      if (_fgocName.text.trim().isEmpty || _fgocPhone.text.trim().isEmpty) {
+      if (_fgocId.isEmpty && !_fgocSearched) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lengkapi data FGOC')),
+          const SnackBar(content: Text('Cari FGOC terlebih dahulu')),
+        );
+        return;
+      }
+      if (_fgocName.text.trim().isEmpty ||
+          _fgocPhone.text.trim().isEmpty ||
+          _fgocPosition.text.trim().isEmpty ||
+          _city == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Lengkapi FGOC Name, Phone, Position, dan City'),
+          ),
         );
         return;
       }
@@ -251,8 +297,12 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Prospect')),
       body: AppLoadingOverlay(
-        visible: _finding || _saving,
-        message: _finding ? 'Mencari customer...' : 'Menyimpan...',
+        visible: _finding || _fgocFinding || _saving,
+        message: _fgocFinding
+            ? 'Mencari FGOC...'
+            : _finding
+                ? 'Mencari customer...'
+                : 'Menyimpan...',
         child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
@@ -272,6 +322,10 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                       _showForm = false;
                       _customers = [];
                       _selectedId = '';
+                      _fgocSearched = false;
+                      _fgocShowForm = false;
+                      _fgocHits = [];
+                      _fgocId = '';
                     });
                   },
                 ),
@@ -363,31 +417,77 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                     controller: _fgocName,
                     label: 'FGOC Name',
                     prefixIcon: Icons.apartment_outlined,
+                    onChanged: _onFGOCNameChanged,
                   ),
                   const SizedBox(height: 10),
-                  AppPrimaryButton(label: 'Cari FGOC', onPressed: _searchFGOC),
-                  ..._fgocHits.map(
-                    (row) => ListTile(
-                      title: Text(row['Pref2'] ?? ''),
-                      subtitle: Text(row['Pref1'] ?? ''),
-                      onTap: () => _selectFGOC(row),
+                  AppPrimaryButton(
+                    label: _fgocFinding ? 'Mencari...' : 'Cari FGOC',
+                    loading: _fgocFinding,
+                    onPressed: _searchFGOC,
+                  ),
+                  if (_fgocSearched && _fgocHits.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Pilih FGOC',
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    controller: _fgocPhone,
-                    label: 'FGOC Phone',
-                    keyboardType: TextInputType.phone,
-                    prefixIcon: Icons.phone_outlined,
-                  ),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    controller: _fgocPosition,
-                    label: 'Position',
-                    prefixIcon: Icons.work_outline,
-                  ),
+                    const SizedBox(height: 8),
+                    ..._fgocHits.map((row) {
+                      final selected = _fgocId == (row['Pref1'] ?? '');
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Material(
+                          color: selected
+                              ? const Color(0xFFE8F0E9)
+                              : const Color(0xFFF6F1E8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                              color: selected
+                                  ? AppColors.navy
+                                  : AppColors.line,
+                              width: selected ? 2 : 1,
+                            ),
+                          ),
+                          child: ListTile(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            title: Text(row['Pref2'] ?? ''),
+                            subtitle: Text(row['Pref1'] ?? ''),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => _selectFGOC(row),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                  if (_fgocSearched &&
+                      _fgocHits.isEmpty &&
+                      _fgocShowForm) ...[
+                    const SizedBox(height: 14),
+                    const Text(
+                      'FGOC tidak ditemukan. Lengkapi data di bawah untuk membuat prospect FGOC baru tanpa ID.',
+                      style: TextStyle(color: AppColors.muted),
+                    ),
+                  ],
+                  if (_fgocShowForm) ...[
+                    const SizedBox(height: 14),
+                    AppTextField(
+                      controller: _fgocPhone,
+                      label: 'FGOC Phone',
+                      keyboardType: TextInputType.phone,
+                      prefixIcon: Icons.phone_outlined,
+                    ),
+                    const SizedBox(height: 14),
+                    AppTextField(
+                      controller: _fgocPosition,
+                      label: 'Position',
+                      prefixIcon: Icons.work_outline,
+                    ),
+                  ],
                 ],
-                if (_company || _showForm) ...[
+                if (_company ? _fgocShowForm : _showForm) ...[
                   const SizedBox(height: 14),
                   AppDropdown<CityItem>(
                     label: 'City',
