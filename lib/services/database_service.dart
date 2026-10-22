@@ -126,16 +126,18 @@ class DatabaseService {
     }
     final db = await database;
     await db.transaction((transaction) async {
+      final batch = transaction.batch();
       for (final entry in dataByTable.entries) {
-        await transaction.delete(entry.key);
+        batch.delete(entry.key);
         for (final row in entry.value) {
-          await transaction.insert(
+          batch.insert(
             entry.key,
             row,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
       }
+      await batch.commit(noResult: true);
     });
   }
 
@@ -198,9 +200,10 @@ class DatabaseService {
 
   Future<void> replaceHistoryUnits(List<HistoryUnit> units) async {
     await clearTable('HISTORYUNIT');
-    for (final unit in units) {
-      await addHistoryUnit(unit);
-    }
+    await insertBatch(
+      'HISTORYUNIT',
+      units.map((unit) => unit.toMap()).toList(),
+    );
   }
 
   Future<void> deleteHistoryUnitAt(int index) async {

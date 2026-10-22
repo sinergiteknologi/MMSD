@@ -45,56 +45,67 @@ class MasterDataProvider with ChangeNotifier {
 
     try {
       await configureFromPrefs();
+      var completed = 0;
+      Future<List<Map<String, dynamic>>> tracked(
+        String label,
+        Future<List<Map<String, dynamic>>> future,
+      ) async {
+        final rows = await future;
+        completed++;
+        _setProgress(0.08 + completed * 0.11, label);
+        return rows;
+      }
+
       _setProgress(0.08, 'Mengunduh Brand');
-      final brandRows = await _fetchCodeName(
-        fetch: _apiService.getBrand,
-        codeKey: 'BrandCode',
-        nameKey: 'BrandName',
-      );
-
-      _setProgress(0.2, 'Mengunduh Type');
-      final typeRows = await _fetchCodeName(
-        fetch: _apiService.getType,
-        codeKey: 'TypeCode',
-        nameKey: 'TypeName',
-      );
-
-      _setProgress(0.32, 'Mengunduh Color');
-      final colorRows = await _fetchCodeName(
-        fetch: _apiService.getColor,
-        codeKey: 'ColorCode',
-        nameKey: 'ColorName',
-      );
-
-      _setProgress(0.44, 'Mengunduh Model');
-      final modelRows = await _fetchModels();
-
-      _setProgress(0.56, 'Mengunduh Activity');
-      final activityRows = await _fetchCodeName(
-        fetch: () => _apiService.getDataActivity(),
-        codeKey: 'ActivityCode',
-        nameKey: 'ActivityName',
-      );
-
-      _setProgress(0.68, 'Mengunduh Sub Activity');
-      final subActivityRows = await _fetchSubActivity();
-
-      _setProgress(0.8, 'Mengunduh City');
-      final cityRows = await _fetchCity();
-
-      _setProgress(0.9, 'Mengunduh District');
-      final districtRows = await _fetchDistrict();
+      final rows = await Future.wait([
+        tracked(
+          'Mengunduh Brand',
+          _fetchCodeName(
+            fetch: _apiService.getBrand,
+            codeKey: 'BrandCode',
+            nameKey: 'BrandName',
+          ),
+        ),
+        tracked(
+          'Mengunduh Type',
+          _fetchCodeName(
+            fetch: _apiService.getType,
+            codeKey: 'TypeCode',
+            nameKey: 'TypeName',
+          ),
+        ),
+        tracked(
+          'Mengunduh Color',
+          _fetchCodeName(
+            fetch: _apiService.getColor,
+            codeKey: 'ColorCode',
+            nameKey: 'ColorName',
+          ),
+        ),
+        tracked('Mengunduh Model', _fetchModels()),
+        tracked(
+          'Mengunduh Activity',
+          _fetchCodeName(
+            fetch: () => _apiService.getDataActivity(),
+            codeKey: 'ActivityCode',
+            nameKey: 'ActivityName',
+          ),
+        ),
+        tracked('Mengunduh Sub Activity', _fetchSubActivity()),
+        tracked('Mengunduh City', _fetchCity()),
+        tracked('Mengunduh District', _fetchDistrict()),
+      ]);
 
       _setProgress(0.96, 'Menyimpan data');
       await _dbService.replaceTablesAtomically({
-        'M_BRAND': brandRows,
-        'M_TYPE': typeRows,
-        'M_COLOR': colorRows,
-        'M_MODEL': modelRows,
-        'M_ACTIVITY': activityRows,
-        'M_SUBACTIVITY': subActivityRows,
-        'M_CITY': cityRows,
-        'M_DISTRICT': districtRows,
+        'M_BRAND': rows[0],
+        'M_TYPE': rows[1],
+        'M_COLOR': rows[2],
+        'M_MODEL': rows[3],
+        'M_ACTIVITY': rows[4],
+        'M_SUBACTIVITY': rows[5],
+        'M_CITY': rows[6],
+        'M_DISTRICT': rows[7],
       });
       _setProgress(1.0, 'Data siap');
       return true;
@@ -133,7 +144,7 @@ class MasterDataProvider with ChangeNotifier {
   Future<List<Map<String, dynamic>>> _fetchModels() async {
     final xml = await _apiService.getModel();
     if (xml == null) throw StateError(_apiService.lastErrorMessage);
-    final rows = XmlParser.parseDataPref(xml).toRows(maxPref: 4);
+    final rows = XmlParser.parseDataPref(xml, maxPref: 4).toRows(maxPref: 4);
     if (rows.isEmpty) throw StateError('Master model kosong.');
     return rows
         .map<Map<String, dynamic>>(
@@ -150,7 +161,7 @@ class MasterDataProvider with ChangeNotifier {
   Future<List<Map<String, dynamic>>> _fetchSubActivity() async {
     final xml = await _apiService.getDataSubActivity();
     if (xml == null) throw StateError(_apiService.lastErrorMessage);
-    final rows = XmlParser.parseDataPref(xml).toRows(maxPref: 3);
+    final rows = XmlParser.parseDataPref(xml, maxPref: 3).toRows(maxPref: 3);
     if (rows.isEmpty) throw StateError('Master sub activity kosong.');
     return rows
         .map<Map<String, dynamic>>(
@@ -166,7 +177,7 @@ class MasterDataProvider with ChangeNotifier {
   Future<List<Map<String, dynamic>>> _fetchCity() async {
     final xml = await _apiService.getCity();
     if (xml == null) throw StateError(_apiService.lastErrorMessage);
-    final rows = XmlParser.parseDataPref(xml).toRows(maxPref: 3);
+    final rows = XmlParser.parseDataPref(xml, maxPref: 3).toRows(maxPref: 3);
     if (rows.isEmpty) throw StateError('Master city kosong.');
     return rows
         .map<Map<String, dynamic>>(
@@ -182,7 +193,7 @@ class MasterDataProvider with ChangeNotifier {
   Future<List<Map<String, dynamic>>> _fetchDistrict() async {
     final xml = await _apiService.getDistrict();
     if (xml == null) throw StateError(_apiService.lastErrorMessage);
-    final rows = XmlParser.parseDataPref(xml).toRows(maxPref: 4);
+    final rows = XmlParser.parseDataPref(xml, maxPref: 4).toRows(maxPref: 4);
     if (rows.isEmpty) throw StateError('Master district kosong.');
     return rows
         .map<Map<String, dynamic>>(

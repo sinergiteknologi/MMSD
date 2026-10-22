@@ -84,10 +84,44 @@ class XmlParser {
     );
   }
 
+  static void _flattenJson(dynamic node, Map<String, String> out) {
+    if (node is Map) {
+      for (final entry in node.entries) {
+        final value = entry.value;
+        if (value != null && value is! Map && value is! List) {
+          out.putIfAbsent(entry.key.toString(), () => value.toString());
+        } else {
+          _flattenJson(value, out);
+        }
+      }
+    } else if (node is List) {
+      for (final item in node) {
+        _flattenJson(item, out);
+      }
+    }
+  }
+
   static DataPref parseDataPref(String xmlString, {int maxPref = 55}) {
+    final raw = xmlString.trim();
+    final flattened = <String, String>{};
+    try {
+      if (raw.startsWith('{')) {
+        _flattenJson(jsonDecode(raw), flattened);
+      } else {
+        final document = XmlDocument.parse(xmlString);
+        for (final element in document.descendants.whereType<XmlElement>()) {
+          flattened.putIfAbsent(
+            element.name.local,
+            () => element.innerText,
+          );
+        }
+      }
+    } catch (_) {
+      return DataPref(const {});
+    }
     final values = <String, String>{};
     for (var i = 1; i <= maxPref; i++) {
-      final value = getTagValue(xmlString, 'Pref$i');
+      final value = flattened['Pref$i'];
       if (value != null) values['Pref$i'] = value;
     }
     return DataPref(values);
