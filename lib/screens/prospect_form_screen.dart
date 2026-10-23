@@ -177,6 +177,7 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
         _fgocPosition.clear();
       });
     }
+    
     setState(() {
       _fgocFinding = true;
       _fgocDropdownOpen = true;
