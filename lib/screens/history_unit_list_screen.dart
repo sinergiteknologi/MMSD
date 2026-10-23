@@ -49,26 +49,27 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
     if (user == null || _units.isEmpty) return;
     setState(() => _saving = true);
     final draft = widget.draft;
-    final success = await context.read<ProspectProvider>().uploadNewData4({
-      'prmMBranchCode': user.busCode,
-      'prmMUser': user.username,
-      'prmMName': draft.name,
-      'prmMPhone': draft.phone,
-      'prmMPhone2': draft.phone2,
-      'prmMIsCompany': draft.company ? '2' : '0',
-      'prmMUserLevel': user.userGroup,
-      'prmMSalesCode': user.salesCode,
-      'prmMProvince': draft.provinceCode,
-      'prmMCity': draft.cityCode,
+    final isCompany = draft.company;
+    final payload = <String, String>{
+      'prmMBranchCode': emptyStr(user.busCode),
+      'prmMUser': emptyStr(user.username),
+      'prmMName': isCompany ? '' : emptyStr(draft.name),
+      'prmMPhone': isCompany ? '' : emptyStr(draft.phone),
+      'prmMPhone2': isCompany ? '' : emptyStr(draft.phone2),
+      'prmMIsCompany': isCompany ? '2' : '1',
+      'prmMUserLevel': '',
+      'prmMSalesCode': emptyStr(user.salesCode),
+      'prmMProvince': emptyStr(draft.provinceCode),
+      'prmMCity': emptyStr(draft.cityCode),
       'prmBrandCode': UnitJoin.of(_units.map((u) => u.brandCode).toList()),
       'prmTypeCode': UnitJoin.of(_units.map((u) => u.typeCode).toList()),
       'prmModelCode': UnitJoin.of(_units.map((u) => u.modelCode).toList()),
       'prmQty': UnitJoin.of(_units.map((u) => u.qty).toList()),
       'prmColourCode': UnitJoin.of(_units.map((u) => u.colourCode).toList()),
       'prmActivityCode': UnitJoin.of(_units.map((u) => u.activityCode).toList()),
-      'prmIDNo': draft.company && draft.fgocId.isNotEmpty
-          ? draft.fgocId
-          : draft.idNo,
+      'prmIDNo': isCompany
+          ? emptyStr(draft.fgocDesc.isNotEmpty ? draft.fgocDesc : draft.idNo)
+          : emptyStr(draft.idNo),
       'prmProvinceCode': UnitJoin.of(_units.map((u) => u.provinceCode).toList()),
       'prmCityCode': UnitJoin.of(_units.map((u) => u.cityCode).toList()),
       'prmDistrictCode': UnitJoin.of(_units.map((u) => u.districtCode).toList()),
@@ -76,11 +77,13 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
           UnitJoin.of(_units.map((u) => u.subActivityCode).toList()),
       'prmACTNumber': UnitJoin.of(_units.map((u) => u.actNumber).toList()),
       'prmFleetType': UnitJoin.of(_units.map((u) => u.fleetCode).toList()),
-      'prmFGOCContectId': draft.fgocId,
-      'prmFGOCContectName': draft.fgocName,
-      'prmFGOCContectPhone': draft.fgocPhone,
-      'prmFGOCContectPosition': draft.fgocPosition,
-    });
+      'prmFGOCContectId': isCompany ? emptyStr(draft.fgocContactId) : '',
+      'prmFGOCContectName': isCompany ? emptyStr(draft.fgocName) : '',
+      'prmFGOCContectPhone': isCompany ? emptyStr(draft.fgocPhone) : '',
+      'prmFGOCContectPosition': isCompany ? emptyStr(draft.fgocPosition) : '',
+    };
+    final success =
+        await context.read<ProspectProvider>().uploadNewData4(payload);
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -95,6 +98,10 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final draft = widget.draft;
+    final title = draft.company
+        ? '${draft.name}  ·  ${draft.fgocName}  ·  ${draft.fgocPhone}'
+        : '${draft.name}  ·  ${draft.phone}';
     return Scaffold(
       appBar: AppBar(title: const Text('History Unit')),
       body: Column(
@@ -103,7 +110,7 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: AppCard(
               child: Text(
-                '${widget.draft.name}  ·  ${widget.draft.phone}',
+                title,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
@@ -143,7 +150,8 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
                             ),
                             IconButton(
                               onPressed: () async {
-                                await DatabaseService().deleteHistoryUnitAt(index);
+                                await DatabaseService()
+                                    .deleteHistoryUnitAt(index);
                                 await _reload();
                               },
                               icon: const Icon(Icons.delete_outline),

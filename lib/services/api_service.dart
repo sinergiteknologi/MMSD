@@ -48,9 +48,13 @@ class ApiService {
 
   Future<String?> _callWithBisnis(
     String method, [
-    Map<String, String>? params,
+    Map<String, String?>? params,
   ]) {
-    return _call(method, {'sBisnis': _bisnis, ...?params});
+    return _call(method, {
+      'sBisnis': _bisnis,
+      if (params != null)
+        for (final entry in params.entries) entry.key: entry.value ?? '',
+    });
   }
 
   Future<String?> getVersi() {
@@ -213,19 +217,19 @@ class ApiService {
     });
   }
 
-  Future<String?> uploadNewData(Map<String, String> data) {
+  Future<String?> uploadNewData(Map<String, String?> data) {
     return _callWithBisnis('UploadNewData', data);
   }
 
-  Future<String?> uploadNewData2(Map<String, String> data) {
+  Future<String?> uploadNewData2(Map<String, String?> data) {
     return _callWithBisnis('UploadNewData2', data);
   }
 
-  Future<String?> uploadNewData3(Map<String, String> data) {
+  Future<String?> uploadNewData3(Map<String, String?> data) {
     return _callWithBisnis('UploadNewData3', data);
   }
 
-  Future<String?> uploadNewData4(Map<String, String> data) {
+  Future<String?> uploadNewData4(Map<String, String?> data) {
     return _callWithBisnis('UploadNewData4', data);
   }
 

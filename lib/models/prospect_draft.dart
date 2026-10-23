@@ -7,7 +7,10 @@ class ProspectDraft {
     this.idNo = '',
     this.provinceCode = '',
     this.cityCode = '',
-    this.fgocId = '',
+    this.fgocCode = '',
+    this.fgocDesc = '',
+    this.fgocType = '',
+    this.fgocContactId = '',
     this.fgocName = '',
     this.fgocPhone = '',
     this.fgocPosition = '',
@@ -20,13 +23,18 @@ class ProspectDraft {
   final String idNo;
   final String provinceCode;
   final String cityCode;
-  final String fgocId;
+  final String fgocCode;
+  final String fgocDesc;
+  final String fgocType;
+  final String fgocContactId;
   final String fgocName;
   final String fgocPhone;
   final String fgocPosition;
 }
 
 class UnitJoin {
-  static String of(List<String> values) =>
-      values.where((value) => value.isNotEmpty).join('|');
+  static String of(List<String?> values) =>
+      values.map((value) => value ?? '').join('|');
 }
+
+String emptyStr(String? value) => value ?? '';
