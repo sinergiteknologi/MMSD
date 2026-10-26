@@ -50,7 +50,10 @@ class _ReportTableScreenState extends State<ReportTableScreen> {
   List<ReportColumn> _columns(List<Map<String, String>> rows) {
     if (widget.columns.isNotEmpty) {
       return widget.columns
-          .where((column) => rows.any((row) => (row[column.key] ?? '').trim().isNotEmpty))
+          .where(
+            (column) =>
+                rows.any((row) => (row[column.key] ?? '').trim().isNotEmpty),
+          )
           .toList();
     }
     if (rows.isEmpty) return const [];
@@ -58,6 +61,21 @@ class _ReportTableScreenState extends State<ReportTableScreen> {
         .where((key) => rows.any((row) => (row[key] ?? '').trim().isNotEmpty))
         .map((key) => ReportColumn(key, key))
         .toList();
+  }
+
+  double _tableWidth(List<ReportColumn> columns) {
+    // No + tiap kolom; pastikan lebih lebar dari layar supaya horizontal scroll aktif
+    return 56 + (columns.length * 110);
+  }
+
+  void _nudgeHorizontal(double delta) {
+    if (!_hScroll.hasClients) return;
+    final max = _hScroll.position.maxScrollExtent;
+    _hScroll.animateTo(
+      (_hScroll.offset + delta).clamp(0, max),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -75,16 +93,30 @@ class _ReportTableScreenState extends State<ReportTableScreen> {
             return const EmptyState(message: 'No data');
           }
           final columns = _columns(rows);
+          final tableWidth = _tableWidth(columns);
           return Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '${rows.length} data · geser kanan/kiri untuk lihat kolom',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${rows.length} data · geser kanan/kiri',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Geser kiri',
+                      onPressed: () => _nudgeHorizontal(-160),
+                      icon: const Icon(Icons.chevron_left_rounded),
+                    ),
+                    IconButton(
+                      tooltip: 'Geser kanan',
+                      onPressed: () => _nudgeHorizontal(160),
+                      icon: const Icon(Icons.chevron_right_rounded),
+                    ),
+                  ],
                 ),
               ),
               Expanded(
@@ -94,84 +126,70 @@ class _ReportTableScreenState extends State<ReportTableScreen> {
                     padding: EdgeInsets.zero,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(22),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return Scrollbar(
-                            controller: _hScroll,
-                            thumbVisibility: true,
-                            notificationPredicate: (n) =>
-                                n.metrics.axis == Axis.horizontal,
-                            child: SingleChildScrollView(
-                              controller: _hScroll,
-                              scrollDirection: Axis.horizontal,
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minWidth: constraints.maxWidth,
-                                  minHeight: constraints.maxHeight,
+                      child: Scrollbar(
+                        controller: _hScroll,
+                        thumbVisibility: true,
+                        notificationPredicate: (n) =>
+                            n.metrics.axis == Axis.horizontal,
+                        child: SingleChildScrollView(
+                          controller: _hScroll,
+                          scrollDirection: Axis.horizontal,
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                          child: SizedBox(
+                            width: tableWidth,
+                            child: Scrollbar(
+                              controller: _vScroll,
+                              thumbVisibility: true,
+                              child: ListView.builder(
+                                controller: _vScroll,
+                                physics: const AlwaysScrollableScrollPhysics(
+                                  parent: BouncingScrollPhysics(),
                                 ),
-                                child: Scrollbar(
-                                  controller: _vScroll,
-                                  thumbVisibility: true,
-                                  child: SingleChildScrollView(
-                                    controller: _vScroll,
-                                    child: Table(
-                                      border: TableBorder.symmetric(
-                                        inside: const BorderSide(
-                                          color: AppColors.line,
+                                itemCount: rows.length + 1,
+                                itemBuilder: (context, index) {
+                                  if (index == 0) {
+                                    return _row(
+                                      cells: [
+                                        _headerCell('No', width: 56),
+                                        ...columns.map(
+                                          (column) => _headerCell(
+                                            column.label,
+                                            width: 110,
+                                          ),
+                                        ),
+                                      ],
+                                      color: AppColors.navy,
+                                    );
+                                  }
+                                  final row = rows[index - 1];
+                                  return _row(
+                                    cells: [
+                                      _cell(
+                                        '${index}',
+                                        width: 56,
+                                        numeric: true,
+                                      ),
+                                      ...columns.map(
+                                        (column) => _cell(
+                                          row[column.key] ?? '',
+                                          width: 110,
+                                          phone: widget.phoneKey == column.key
+                                              ? (row[column.key] ?? '')
+                                              : '',
                                         ),
                                       ),
-                                      defaultColumnWidth:
-                                          const IntrinsicColumnWidth(),
-                                      defaultVerticalAlignment:
-                                          TableCellVerticalAlignment.middle,
-                                      children: [
-                                        TableRow(
-                                          decoration: const BoxDecoration(
-                                            color: AppColors.navy,
-                                          ),
-                                          children: [
-                                            _headerCell('No'),
-                                            ...columns.map(
-                                              (column) =>
-                                                  _headerCell(column.label),
-                                            ),
-                                          ],
-                                        ),
-                                        ...List.generate(rows.length, (index) {
-                                          final row = rows[index];
-                                          final odd = index.isOdd;
-                                          return TableRow(
-                                            decoration: BoxDecoration(
-                                              color: odd
-                                                  ? AppColors.cream
-                                                  : Colors.white,
-                                            ),
-                                            children: [
-                                              _cell(
-                                                '${index + 1}',
-                                                numeric: true,
-                                              ),
-                                              ...columns.map(
-                                                (column) => _cell(
-                                                  row[column.key] ?? '',
-                                                  phone:
-                                                      widget.phoneKey ==
-                                                          column.key
-                                                      ? (row[column.key] ?? '')
-                                                      : '',
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        }),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                                    ],
+                                    color: index.isOdd
+                                        ? AppColors.cream
+                                        : Colors.white,
+                                  );
+                                },
                               ),
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -184,42 +202,72 @@ class _ReportTableScreenState extends State<ReportTableScreen> {
     );
   }
 
-  Widget _headerCell(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
+  Widget _row({required List<Widget> cells, required Color color}) {
+    return ColoredBox(
+      color: color,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: cells,
+      ),
+    );
+  }
+
+  Widget _headerCell(String text, {required double width}) {
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        child: Text(
+          text,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
         ),
       ),
     );
   }
 
-  Widget _cell(String text, {bool numeric = false, String phone = ''}) {
+  Widget _cell(
+    String text, {
+    required double width,
+    bool numeric = false,
+    String phone = '',
+  }) {
     final value = text.trim().isEmpty ? '-' : text;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: phone.trim().isEmpty
-          ? Text(
-              value,
-              textAlign: numeric ? TextAlign.right : TextAlign.left,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-            )
-          : InkWell(
-              onTap: () => _contact(phone),
-              child: Text(
+    return SizedBox(
+      width: width,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        child: phone.trim().isEmpty
+            ? Text(
                 value,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                textAlign: numeric ? TextAlign.right : TextAlign.left,
                 style: const TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.navy,
-                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            : InkWell(
+                onTap: () => _contact(phone),
+                child: Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.navy,
+                    decoration: TextDecoration.underline,
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 

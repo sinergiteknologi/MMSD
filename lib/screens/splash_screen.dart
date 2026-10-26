@@ -6,6 +6,7 @@ import '../models/version_check.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_config.dart';
+import '../utils/launch_util.dart';
 import '../utils/xml_parser.dart';
 import '../widgets/app_widgets.dart';
 import 'home_screen.dart';
@@ -168,7 +169,29 @@ class UpdateRequiredScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     AppPrimaryButton(
-                      label: 'Salin tautan Play Store',
+                      label: 'Buka di Chrome',
+                      onPressed: () async {
+                        final ok = await LaunchUtil.openWebsite(
+                          AppConfig.playStoreUrl,
+                        );
+                        if (!context.mounted) return;
+                        if (!ok) {
+                          await Clipboard.setData(
+                            ClipboardData(text: AppConfig.playStoreUrl),
+                          );
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Chrome tidak tersedia. Tautan Play Store disalin.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
                       onPressed: () async {
                         await Clipboard.setData(
                           ClipboardData(text: AppConfig.playStoreUrl),
@@ -180,6 +203,7 @@ class UpdateRequiredScreen extends StatelessWidget {
                           ),
                         );
                       },
+                      child: const Text('Salin tautan Play Store'),
                     ),
                   ],
                 ),

@@ -63,9 +63,12 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Install Aplikasi'),
         content: const Text(
-          'Chrome/Android: ketuk menu ⋮ lalu pilih "Install app" atau '
-          '"Add to Home screen".\n\n'
-          'Safari/iPhone: ketuk Share lalu pilih "Add to Home Screen".',
+          'Syarat PWA: buka lewat HTTPS (bukan http), pakai build release '
+          '(ada service worker).\n\n'
+          'Chrome: menu ⋮ → Install app / Add to Home screen.\n\n'
+          'Samsung Internet: menu ☰ → Add page to → Home screen '
+          '(atau Install application jika muncul).\n\n'
+          'Safari/iPhone: Share → Add to Home Screen.',
         ),
         actions: [
           TextButton(

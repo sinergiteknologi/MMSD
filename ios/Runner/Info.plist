@@ -30,8 +30,11 @@
 	<array>
 		<string>tel</string>
 		<string>sms</string>
+		<string>http</string>
 		<string>https</string>
 		<string>whatsapp</string>
+		<string>googlechrome</string>
+		<string>googlechromes</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
