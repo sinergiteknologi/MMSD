@@ -11,7 +11,7 @@ class ApiService {
     _bisnis = bisnis;
     _client.baseUrl = AppConfig.serviceUrl(server);
   }
-
+  
   void updateBaseUrl(String url) {
     _client.baseUrl = AppConfig.serviceUrl(url);
   }

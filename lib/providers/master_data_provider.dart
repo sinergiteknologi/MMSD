@@ -94,6 +94,14 @@ class MasterDataProvider with ChangeNotifier {
         tracked('Mengunduh Sub Activity', _fetchSubActivity()),
         tracked('Mengunduh City', _fetchCity()),
         tracked('Mengunduh District', _fetchDistrict()),
+        tracked(
+          'Mengunduh Fleet',
+          _fetchCodeName(
+            fetch: _apiService.getDataFleet,
+            codeKey: 'FleetCode',
+            nameKey: 'FleetName',
+          ),
+        ),
       ]);
 
       _setProgress(0.96, 'Menyimpan data');
@@ -106,6 +114,7 @@ class MasterDataProvider with ChangeNotifier {
         'M_SUBACTIVITY': rows[5],
         'M_CITY': rows[6],
         'M_DISTRICT': rows[7],
+        'M_FLEET': rows[8],
       });
       _setProgress(1.0, 'Data siap');
       return true;
@@ -310,9 +319,18 @@ class MasterDataProvider with ChangeNotifier {
   }
 
   Future<List<CodeName>> getFleet() async {
+    final local = await searchLocal(
+      'M_FLEET',
+      codeKey: 'FleetCode',
+      nameKey: 'FleetName',
+    );
+    if (local.isNotEmpty) return local;
+
+    await configureFromPrefs();
     final xml = await _apiService.getDataFleet();
     if (xml == null) return [];
     final items = XmlParser.parseCodeName(xml);
+    if (items.isEmpty) return [];
     await _dbService.clearTable('M_FLEET');
     await _dbService.insertBatch(
       'M_FLEET',

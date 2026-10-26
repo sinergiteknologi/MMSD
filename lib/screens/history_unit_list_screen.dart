@@ -50,10 +50,12 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
     setState(() => _saving = true);
     final draft = widget.draft;
     final isCompany = draft.company;
+    // FGOC baru (fgocDesc/fgocCode kosong): prmIDNo kosong → backend create
+    // CRM_M_Prospect + UN_AR_M_Customer (+ Contact). FGOC existing: prmIDNo = Description.
     final payload = <String, String>{
       'prmMBranchCode': emptyStr(user.busCode),
       'prmMUser': emptyStr(user.username),
-      'prmMName': isCompany ? '' : emptyStr(draft.name),
+      'prmMName': emptyStr(draft.name),
       'prmMPhone': isCompany ? '' : emptyStr(draft.phone),
       'prmMPhone2': isCompany ? '' : emptyStr(draft.phone2),
       'prmMIsCompany': isCompany ? '2' : '1',
@@ -68,7 +70,11 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
       'prmColourCode': UnitJoin.of(_units.map((u) => u.colourCode).toList()),
       'prmActivityCode': UnitJoin.of(_units.map((u) => u.activityCode).toList()),
       'prmIDNo': isCompany
-          ? emptyStr(draft.fgocDesc.isNotEmpty ? draft.fgocDesc : draft.idNo)
+          ? emptyStr(
+              draft.fgocCode.isNotEmpty && draft.fgocDesc.isNotEmpty
+                  ? draft.fgocDesc
+                  : '',
+            )
           : emptyStr(draft.idNo),
       'prmProvinceCode': UnitJoin.of(_units.map((u) => u.provinceCode).toList()),
       'prmCityCode': UnitJoin.of(_units.map((u) => u.cityCode).toList()),
@@ -77,6 +83,7 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
           UnitJoin.of(_units.map((u) => u.subActivityCode).toList()),
       'prmACTNumber': UnitJoin.of(_units.map((u) => u.actNumber).toList()),
       'prmFleetType': UnitJoin.of(_units.map((u) => u.fleetCode).toList()),
+      'prmFGOCCustCode': isCompany ? emptyStr(draft.fgocCode) : '',
       'prmFGOCContectId': isCompany ? emptyStr(draft.fgocContactId) : '',
       'prmFGOCContectName': isCompany ? emptyStr(draft.fgocName) : '',
       'prmFGOCContectPhone': isCompany ? emptyStr(draft.fgocPhone) : '',

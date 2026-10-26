@@ -96,6 +96,7 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
       await DatabaseService().clearTable('HISTORYUNIT');
       if (!mounted) return;
       final master = context.read<MasterDataProvider>();
+      await master.configureFromPrefs();
       final cities = await master.getCities();
       final fleets = await master.getFleet();
       if (!mounted) return;
@@ -177,7 +178,7 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
         _fgocPosition.clear();
       });
     }
-    
+
     setState(() {
       _fgocFinding = true;
       _fgocDropdownOpen = true;
@@ -262,18 +263,21 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
       _picFinding = false;
       _picHits = filtered;
       _picDropdownOpen = true;
-      if (like.isEmpty && filtered.length == 1) {
-        _applyPic(filtered.first);
-      }
     });
   }
 
   void _onPicNameChanged(String value) {
-    if (_picLocked || _fgocApplying) return;
+    if (_fgocApplying) return;
     _picDebounce?.cancel();
+    // Ketik manual = PIC baru (bukan dari search) → kosongkan contact id
+    if (_fgocContactId.isNotEmpty) {
+      setState(() {
+        _fgocContactId = '';
+        _picLocked = false;
+      });
+    }
     if (_fgocCode.isEmpty) return;
     setState(() {
-      _fgocContactId = '';
       _picDropdownOpen = true;
       _picFinding = true;
     });
@@ -285,14 +289,15 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
   void _applyPic(Map<String, String> row) {
     _fgocApplying = true;
     setState(() {
-      _fgocContactId = row['Pref1'] ?? '';
+      // Pref1=CustCode, Pref2=DetailContactNo, Pref3=Name, Pref4=Phone, Pref5=Position
+      _fgocContactId = row['Pref2'] ?? '';
       _fgocPicName.text = row['Pref3'] ?? '';
       _fgocPhone.text = row['Pref4'] ?? _fgocPhone.text;
       _fgocPosition.text = row['Pref5'] ?? '';
       _picHits = [];
       _picDropdownOpen = false;
       _picFinding = false;
-      _picLocked = true;
+      _picLocked = false;
     });
     _fgocApplying = false;
   }
@@ -635,6 +640,7 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                       ],
                     ],
                   ] else ...[
+                    const SizedBox(height: 14),
                     AppTextField(
                       controller: _fgocName,
                       label: 'FGOC Name',
@@ -691,7 +697,6 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                       controller: _fgocPicName,
                       label: 'Name PIC',
                       prefixIcon: Icons.person_outline,
-                      readOnly: _picLocked,
                       onChanged: _onPicNameChanged,
                       suffix: IconButton(
                         onPressed: _clearPic,
@@ -699,7 +704,7 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                       ),
                     ),
                     _suggestionBox(
-                      visible: _picDropdownOpen && !_picLocked,
+                      visible: _picDropdownOpen,
                       loading: _picFinding,
                       searched: !_picFinding,
                       emptyText: 'PIC tidak ditemukan. Isi manual.',
@@ -721,7 +726,10 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                       controller: _fgocPosition,
                       label: 'Position PIC',
                       prefixIcon: Icons.work_outline,
-                      readOnly: _picLocked,
+                      onChanged: (_) {
+                        if (_fgocContactId.isEmpty) return;
+                        setState(() => _fgocContactId = '');
+                      },
                     ),
                     const SizedBox(height: 14),
                     AppTextField(
@@ -729,7 +737,10 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                       label: 'Phone PIC',
                       keyboardType: TextInputType.phone,
                       prefixIcon: Icons.phone_outlined,
-                      readOnly: _picLocked,
+                      onChanged: (_) {
+                        if (_fgocContactId.isEmpty) return;
+                        setState(() => _fgocContactId = '');
+                      },
                     ),
                   ],
                   if (_company || _showForm) ...[
