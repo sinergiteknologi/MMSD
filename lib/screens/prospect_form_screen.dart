@@ -222,7 +222,12 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
     }
     setState(() {
       _fgocCode = row['Pref1'] ?? '';
-      _fgocDesc = row['Pref3'] ?? '';
+      // Pref7=IDNo (untuk HistoryID); fallback Pref3=Description
+      final idNo = (row['Pref7'] ?? '').trim();
+      final desc = (row['Pref3'] ?? '').trim();
+      _fgocDesc = (idNo.isNotEmpty && idNo != '-')
+          ? idNo
+          : (desc.isNotEmpty && desc != '-' ? desc : '');
       _fgocName.text = row['Pref2'] ?? _fgocName.text;
       _fgocPhone.text = row['Pref5'] ?? '';
       _fgocHits = [];

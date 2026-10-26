@@ -73,12 +73,11 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     final user = context.read<AuthProvider>().user;
     final master = context.read<MasterDataProvider>();
     final cities = await master.getCities();
-    final tops = await master.getTOP();
     final lobs = await master.getLOB();
     if (!mounted) return;
     setState(() {
       _cities = cities;
-      if (tops.isNotEmpty) _tops = tops;
+      // PY Type = Cash/Credit saja (bukan M_TOP / GetDataTOP)
       _lobs = lobs;
       _lob = lobs.isNotEmpty ? lobs.first : null;
       _city = cities.isNotEmpty ? cities.first : null;
@@ -111,9 +110,9 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       _address.text = v('Pref5');
       _phone.text = v('Pref6').isEmpty ? _phone.text : v('Pref6');
       _phone2.text = v('Pref7');
-      if (top.isNotEmpty) {
-        final match = _tops.where((item) => item.code == top || item.name == top);
-        if (match.isNotEmpty) _top = match.first.code;
+      // Pref10 = TOPCode customer; PY Type hanya Cash/Credit
+      if (top == 'Cash' || top == 'Credit') {
+        _top = top;
       }
       if (cityName.isNotEmpty) {
         _city = _cities.where((item) => item.cityName == cityName).firstOrNull ?? _city;

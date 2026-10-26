@@ -380,7 +380,9 @@ class MasterDataProvider with ChangeNotifier {
   }) async {
     final xml = await _apiService.getFGOC(branchCode: branchCode, like: like);
     if (xml == null) return [];
-    return XmlParser.parseDataPref(xml).toRows(maxPref: 6);
+    // Pref1=CustCode, Pref2=CustName, Pref3=Description, Pref4=ShipAdr,
+    // Pref5=ShipPhn, Pref6=CityName, Pref7=IDNo
+    return XmlParser.parseDataPref(xml).toRows(maxPref: 7);
   }
 
   Future<List<Map<String, String>>> getFGOCContact({
