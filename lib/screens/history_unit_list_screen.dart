@@ -7,6 +7,7 @@ import '../providers/auth_provider.dart';
 import '../providers/prospect_provider.dart';
 import '../services/database_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/date_format.dart';
 import '../widgets/app_widgets.dart';
 import 'history_unit_form_screen.dart';
 
@@ -42,12 +43,14 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
     if (_units.isNotEmpty) {
       final last = _units.last;
       seed = HistoryUnit(
+        qty: '1',
         provinceCode: last.provinceCode,
         cityCode: last.cityCode,
         districtCode: last.districtCode,
       );
     } else if (draft.provinceCode.isNotEmpty || draft.cityCode.isNotEmpty) {
       seed = HistoryUnit(
+        qty: '1',
         provinceCode: draft.provinceCode,
         cityCode: draft.cityCode,
       );
@@ -80,6 +83,7 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
       'prmMSalesCode': emptyStr(user.salesCode),
       'prmMProvince': emptyStr(draft.provinceCode),
       'prmMCity': emptyStr(draft.cityCode),
+      'prmTranDate': AppDateFormat.todayMdy(),
       'prmBrandCode': UnitJoin.of(_units.map((u) => u.brandCode).toList()),
       'prmTypeCode': UnitJoin.of(_units.map((u) => u.typeCode).toList()),
       'prmModelCode': UnitJoin.of(_units.map((u) => u.modelCode).toList()),

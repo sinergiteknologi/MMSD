@@ -48,7 +48,10 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initial != null) _qty.text = widget.initial!.qty;
+    if (widget.initial != null) {
+      final q = widget.initial!.qty.trim();
+      _qty.text = q.isEmpty ? '1' : q;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _boot());
   }
 
@@ -99,10 +102,12 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
           _qty.text = initial.qty;
         } else {
           initial = HistoryUnit(
+            qty: '1',
             provinceCode: hp.provinceCode,
             cityCode: hp.cityCode,
             districtCode: hp.districtCode,
           );
+          _qty.text = '1';
         }
       }
     }
@@ -246,7 +251,7 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
       colourName: _color?.name ?? '',
       activityCode: _activity?.code ?? '',
       activityName: _activity?.name ?? '',
-      qty: _qty.text,
+      qty: _qty.text.trim().isEmpty ? '1' : _qty.text.trim(),
       provinceCode: _city?.provinceCode ?? '',
       cityCode: _city?.cityCode ?? '',
       districtCode: _district?.districtCode ?? '',

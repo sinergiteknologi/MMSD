@@ -29,7 +29,7 @@ class HistoryUnit {
     this.colourName = '',
     this.activityCode = '',
     this.activityName = '',
-    this.qty = '',
+    this.qty = '1',
     this.provinceCode = '',
     this.cityCode = '',
     this.districtCode = '',
@@ -71,7 +71,9 @@ class HistoryUnit {
     colourName: map['ColourName']?.toString() ?? '',
     activityCode: map['ActivityCode']?.toString() ?? '',
     activityName: map['ActivityName']?.toString() ?? '',
-    qty: map['Qty']?.toString() ?? '',
+    qty: (map['Qty']?.toString().trim().isNotEmpty ?? false)
+        ? map['Qty'].toString().trim()
+        : '1',
     provinceCode: map['ProvinceCode']?.toString() ?? '',
     cityCode: map['CityCode']?.toString() ?? '',
     districtCode: map['DistrictCode']?.toString() ?? '',
