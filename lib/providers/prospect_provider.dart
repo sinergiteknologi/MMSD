@@ -76,12 +76,14 @@ class ProspectProvider with ChangeNotifier, SafeNotifier {
     required String filterTlp,
     required String filterId,
     required String user,
+    String historyId = '',
   }) {
     return _loadPref(
       () => _apiService.getFindProspect2(
         filterTlp: filterTlp,
         filterId: filterId,
         user: user,
+        historyId: historyId,
       ),
       maxPref: 19,
     );

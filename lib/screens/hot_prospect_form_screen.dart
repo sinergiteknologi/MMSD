@@ -87,11 +87,12 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       return;
     }
     final prospect = context.read<ProspectProvider>();
-    // Tarik data CRM_M_Prospect dulu (alamat/kota/district dari saat create)
+    // FGOC: PIC/kota/district dari ProspectHistory; personal: dari Prospect
     final prospectRows = await prospect.findProspect2(
       filterTlp: '',
       filterId: widget.row.idNo,
       user: user.username,
+      historyId: widget.isPersonal ? '' : widget.row.historyId,
     );
     if (mounted && prospectRows.isNotEmpty) _applyProspect(prospectRows.first);
     // Overlay dari master customer jika sudah ada (setelah SPK)
