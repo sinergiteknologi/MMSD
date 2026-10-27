@@ -96,7 +96,7 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     if (mounted && prospectRows.isNotEmpty) _applyProspect(prospectRows.first);
     // Overlay dari master customer jika sudah ada (setelah SPK)
     final custRows = await prospect.getCustomer(
-      branchCode: user.historyBranch,
+      branchCode: user.busCode,
       idNo: widget.row.idNo,
     );
     if (mounted && custRows.isNotEmpty) _applyCustomer(custRows.first);

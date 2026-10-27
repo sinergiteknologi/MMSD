@@ -58,13 +58,9 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
     if (hp != null) {
       final user = context.read<AuthProvider>().user;
       if (user != null) {
-        // Pakai busCode + historyBranch (pipe) agar ketemu history prospect awal
-        final cabang = [
-          user.busCode,
-          if (user.historyBranch.isNotEmpty) user.historyBranch,
-        ].where((v) => v.trim().isNotEmpty).join('|');
+        // Sama Android: KodeCabang = cabang login (bukan BranchAut pipe)
         final pref = await context.read<ProspectProvider>().getHistoryEdit(
-              kodeCabang: cabang,
+              kodeCabang: user.busCode,
               idNo: hp.row.idNo,
               historyId: hp.row.historyId,
               userCreated: user.username,

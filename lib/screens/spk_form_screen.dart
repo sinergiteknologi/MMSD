@@ -158,12 +158,8 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
         }
       }
       // 3) Brand/type/model/warna/activity dari history unit prospect
-      final cabang = [
-        user.busCode,
-        if (user.historyBranch.isNotEmpty) user.historyBranch,
-      ].where((v) => v.trim().isNotEmpty).join('|');
       final hist = await prospect.getHistoryEdit(
-        kodeCabang: cabang,
+        kodeCabang: user.busCode,
         idNo: widget.row.idNo,
         historyId: widget.row.historyId,
         userCreated: user.username,
