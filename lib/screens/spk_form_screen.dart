@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../models/code_name.dart';
@@ -332,7 +333,9 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
       _faktur = v('Pref15') == '1';
       if (v('Pref16').isNotEmpty) _fakturName.text = v('Pref16');
       if (v('Pref17').isNotEmpty) _dp.text = v('Pref17');
-      if (v('Pref18').isNotEmpty) _price.text = v('Pref18');
+      if (v('Pref18').isNotEmpty) {
+        _price.text = v('Pref18').replaceAll(RegExp(r'[^0-9]'), '');
+      }
     });
   }
 
@@ -826,6 +829,7 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
                   controller: _price,
                   label: 'SPK Price',
                   keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   prefixIcon: Icons.payments_outlined,
                 ),
                 const SizedBox(height: 14),

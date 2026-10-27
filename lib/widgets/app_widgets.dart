@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
 
@@ -125,6 +126,7 @@ class AppTextField extends StatelessWidget {
     required this.label,
     this.obscureText = false,
     this.keyboardType,
+    this.inputFormatters,
     this.prefixIcon,
     this.suffix,
     this.readOnly = false,
@@ -135,6 +137,7 @@ class AppTextField extends StatelessWidget {
   final String label;
   final bool obscureText;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final IconData? prefixIcon;
   final Widget? suffix;
   final bool readOnly;
@@ -148,6 +151,7 @@ class AppTextField extends StatelessWidget {
       onChanged: onChanged,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
