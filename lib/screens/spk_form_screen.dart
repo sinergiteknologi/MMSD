@@ -483,6 +483,31 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
       );
       return;
     }
+    if (_ktp.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill KTP No')),
+      );
+      return;
+    }
+    if (_npwp.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill NPWP')),
+      );
+      return;
+    }
+    if (_price.text.trim().isEmpty ||
+        _price.text.replaceAll(',', '').trim() == '0') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill SPK Price')),
+      );
+      return;
+    }
+    if (_dp.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill DP')),
+      );
+      return;
+    }
     if (_payType == '-' || _payType.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill TOP')),

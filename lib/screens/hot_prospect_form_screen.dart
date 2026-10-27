@@ -119,8 +119,14 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       _name.text = _v(row, 'Pref3').isEmpty ? _name.text : _v(row, 'Pref3');
       _phone.text = _v(row, 'Pref2').isEmpty ? _phone.text : _v(row, 'Pref2');
       _phone2.text = _v(row, 'Pref5');
-      _address.text = _v(row, 'Pref4');
-      if (_v(row, 'Pref8').isNotEmpty) _birth = _v(row, 'Pref8');
+      // Pref4 = CRM_M_Prospect.Address saja (jangan ambil CityName/dll)
+      final addr = _v(row, 'Pref4');
+      if (addr.isNotEmpty && !addr.contains(',')) {
+        _address.text = addr;
+      }
+      if (_v(row, 'Pref8').isNotEmpty && _v(row, 'Pref8') != '01/01/1900') {
+        _birth = _v(row, 'Pref8');
+      }
       if (_v(row, 'Pref10').isNotEmpty) _pic.text = _v(row, 'Pref10');
       if (lobCode.isNotEmpty) {
         _lob = _lobs.where((item) => item.code == lobCode).firstOrNull ?? _lob;
