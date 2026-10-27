@@ -266,6 +266,22 @@ class MasterDataProvider with ChangeNotifier {
     );
   }
 
+  /// Cari TypeCode dari model prospect (Brand + Model) di master lokal.
+  Future<String?> findTypeCodeForModel({
+    required String brandCode,
+    required String modelCode,
+  }) async {
+    if (brandCode.isEmpty || modelCode.isEmpty) return null;
+    final rows = await _dbService.queryTable(
+      'M_MODEL',
+      where: 'BrandCode = ? AND ModelCode = ?',
+      whereArgs: [brandCode, modelCode],
+    );
+    if (rows.isEmpty) return null;
+    final type = rows.first['TypeCode']?.toString() ?? '';
+    return type.isEmpty ? null : type;
+  }
+
   Future<List<CodeName>> getSubActivities(String activityCode) {
     return searchLocal(
       'M_SUBACTIVITY',

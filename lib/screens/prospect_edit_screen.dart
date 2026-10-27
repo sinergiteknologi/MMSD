@@ -39,8 +39,12 @@ class _ProspectEditScreenState extends State<ProspectEditScreen> {
           idNo: widget.row.idNo,
         );
     if (!mounted) return;
+    final cabang = [
+      user.busCode,
+      if (user.historyBranch.isNotEmpty) user.historyBranch,
+    ].where((v) => v.trim().isNotEmpty).join('|');
     final unit = await prospect.getHistoryEdit(
-          kodeCabang: user.historyBranch,
+          kodeCabang: cabang,
           idNo: widget.row.idNo,
           historyId: widget.row.historyId,
           userCreated: user.username,

@@ -58,8 +58,13 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
     if (hp != null) {
       final user = context.read<AuthProvider>().user;
       if (user != null) {
+        // Pakai busCode + historyBranch (pipe) agar ketemu history prospect awal
+        final cabang = [
+          user.busCode,
+          if (user.historyBranch.isNotEmpty) user.historyBranch,
+        ].where((v) => v.trim().isNotEmpty).join('|');
         final pref = await context.read<ProspectProvider>().getHistoryEdit(
-              kodeCabang: user.historyBranch,
+              kodeCabang: cabang,
               idNo: hp.row.idNo,
               historyId: hp.row.historyId,
               userCreated: user.username,
@@ -70,10 +75,21 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
             final value = row[key] ?? '';
             return value == '-' ? '' : value;
           }
+          var typeCode = c('Pref4');
+          final brandCode = c('Pref3');
+          final modelCode = c('Pref5');
+          // Jika Type kosong dari API, cari dari master model lokal
+          if (typeCode.isEmpty && brandCode.isNotEmpty && modelCode.isNotEmpty) {
+            typeCode = await context.read<MasterDataProvider>().findTypeCodeForModel(
+                      brandCode: brandCode,
+                      modelCode: modelCode,
+                    ) ??
+                '';
+          }
           initial = HistoryUnit(
-            brandCode: c('Pref3'),
-            typeCode: c('Pref4'),
-            modelCode: c('Pref5'),
+            brandCode: brandCode,
+            typeCode: typeCode,
+            modelCode: modelCode,
             qty: c('Pref6').isEmpty ? '1' : c('Pref6'),
             colourCode: c('Pref7'),
             activityCode: c('Pref8'),
@@ -114,6 +130,8 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
     if (!mounted) return;
     final initial = seeded ?? widget.initial;
     _seed = initial;
+    final hasSeed = (initial?.brandCode ?? '').isNotEmpty ||
+        (initial?.modelCode ?? '').isNotEmpty;
     setState(() {
       _brands = brands;
       _types = types;
@@ -121,18 +139,36 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
       _activities = activities;
       _cities = cities;
       _fleets = fleets;
-      _brand = _pick(brands, initial?.brandCode) ?? (brands.isEmpty ? null : brands.first);
-      _type = _pick(types, initial?.typeCode) ?? (types.isEmpty ? null : types.first);
-      _color = _pick(colors, initial?.colourCode) ?? (colors.isEmpty ? null : colors.first);
+      _brand = _pick(brands, initial?.brandCode) ??
+          (hasSeed || brands.isEmpty ? null : brands.first);
+      _type = _pick(types, initial?.typeCode) ??
+          (hasSeed || types.isEmpty ? null : types.first);
+      _color = _pick(colors, initial?.colourCode) ??
+          (hasSeed || colors.isEmpty ? null : colors.first);
       _activity = _pick(activities, initial?.activityCode) ??
-          (activities.isEmpty ? null : activities.first);
-      _fleet = _pick(fleets, initial?.fleetCode) ?? (fleets.isEmpty ? null : fleets.first);
+          (hasSeed || activities.isEmpty ? null : activities.first);
+      _fleet = _pick(fleets, initial?.fleetCode) ??
+          (fleets.isEmpty ? null : fleets.first);
       _city = cities.where((item) => item.cityCode == initial?.cityCode).firstOrNull ??
           cities
-              .where((item) => item.provinceCode == initial?.provinceCode && initial!.provinceCode.isNotEmpty)
+              .where((item) =>
+                  item.provinceCode == initial?.provinceCode &&
+                  (initial?.provinceCode ?? '').isNotEmpty)
               .firstOrNull ??
           (cities.isEmpty ? null : cities.first);
     });
+    // Jika type belum ketemu tapi brand+model ada, resolve Type dari master
+    if (_type == null &&
+        (_seed?.brandCode ?? '').isNotEmpty &&
+        (_seed?.modelCode ?? '').isNotEmpty) {
+      final resolved = await context.read<MasterDataProvider>().findTypeCodeForModel(
+            brandCode: _seed!.brandCode,
+            modelCode: _seed!.modelCode,
+          );
+      if (resolved != null && mounted) {
+        setState(() => _type = _pick(types, resolved));
+      }
+    }
     await _reloadModels();
     await _reloadSub();
     await _reloadDistricts();
@@ -153,10 +189,11 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
           typeCode: _type!.code,
         );
     if (!mounted) return;
+    final hasSeedModel = (_seed?.modelCode ?? '').isNotEmpty;
     setState(() {
       _models = models;
       _model = _pick(models, _seed?.modelCode) ??
-          (models.isEmpty ? null : models.first);
+          (hasSeedModel || models.isEmpty ? null : models.first);
     });
   }
 

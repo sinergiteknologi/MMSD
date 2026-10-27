@@ -126,33 +126,52 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
         _tops = tops;
         if (!_tops.any((item) => item.code == _top)) _top = tops.first.code;
       }
-      _brand = brands.isNotEmpty ? brands.first : null;
-      _type = types.isNotEmpty ? types.first : null;
-      _color = colors.isNotEmpty ? colors.first : null;
-      _activity = activities.isNotEmpty ? activities.first : null;
-      _city = cities.isNotEmpty ? cities.first : null;
+      // Jangan default ke item pertama dulu — tunggu data prospect/history
+      _brand = null;
+      _type = null;
+      _model = null;
+      _color = null;
+      _activity = null;
+      _city = null;
+      _district = null;
     });
-    await _reloadModels();
-    await _reloadDistricts();
     if (!mounted) return;
     if (user != null) {
       final prospect = context.read<ProspectProvider>();
-      // Tarik data prospect (alamat/kota/district) yang sudah diisi sebelumnya
+      // 1) Alamat/kota/district/agama dari CRM_M_Prospect
       final prospectRows = await prospect.findProspect2(
         filterTlp: '',
         filterId: widget.row.idNo,
         user: user.username,
       );
-      if (mounted && prospectRows.isNotEmpty) _applyProspect(prospectRows.first);
-      // Tarik brand/type/model/warna dari history unit
+      if (mounted && prospectRows.isNotEmpty) {
+        await _applyProspect(prospectRows.first);
+      }
+      // 2) Fallback alamat dari customer jika prospect Address kosong
+      if (mounted && _address.text.trim().isEmpty) {
+        final custRows = await prospect.getCustomer(
+          branchCode: user.busCode,
+          idNo: widget.row.idNo,
+        );
+        if (mounted && custRows.isNotEmpty) {
+          await _applyCustomerAddress(custRows.first);
+        }
+      }
+      // 3) Brand/type/model/warna/activity dari history unit prospect
+      final cabang = [
+        user.busCode,
+        if (user.historyBranch.isNotEmpty) user.historyBranch,
+      ].where((v) => v.trim().isNotEmpty).join('|');
       final hist = await prospect.getHistoryEdit(
-        kodeCabang: user.historyBranch,
+        kodeCabang: cabang,
         idNo: widget.row.idNo,
         historyId: widget.row.historyId,
         userCreated: user.username,
       );
       final histRow = hist?.toRows(maxPref: 14).firstOrNull;
-      if (mounted && histRow != null) await _applyHistoryUnit(histRow);
+      if (mounted && histRow != null) {
+        await _applyHistoryUnit(histRow);
+      }
       if (widget.action != SpkListAction.create) {
         final rows = await context.read<SpkProvider>().getCustomerSPK(
               branchCode: user.busCode,
@@ -163,7 +182,19 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
         if (mounted && rows.isNotEmpty) _applyCustomer(rows.first);
       }
     }
-    if (mounted) setState(() => _loading = false);
+    // Fallback terakhir kalau history/prospect tidak ketemu
+    if (mounted) {
+      setState(() {
+        _brand ??= _brands.isEmpty ? null : _brands.first;
+        _type ??= _types.isEmpty ? null : _types.first;
+        _color ??= _colors.isEmpty ? null : _colors.first;
+        _activity ??= _activities.isEmpty ? null : _activities.first;
+        _city ??= _cities.isEmpty ? null : _cities.first;
+      });
+      if (_models.isEmpty) await _reloadModels();
+      if (_district == null) await _reloadDistricts();
+      setState(() => _loading = false);
+    }
   }
 
   Future<void> _applyHistoryUnit(Map<String, String> row) async {
@@ -173,57 +204,108 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     }
 
     final brandCode = c('Pref3');
-    final typeCode = c('Pref4');
+    var typeCode = c('Pref4');
     final modelCode = c('Pref5');
     final colourCode = c('Pref7');
     final activityCode = c('Pref8');
+    if (typeCode.isEmpty && brandCode.isNotEmpty && modelCode.isNotEmpty) {
+      typeCode = await context.read<MasterDataProvider>().findTypeCodeForModel(
+                brandCode: brandCode,
+                modelCode: modelCode,
+              ) ??
+          '';
+    }
+    if (!mounted) return;
     setState(() {
       if (brandCode.isNotEmpty) {
-        _brand = _brands.where((item) => item.code == brandCode).firstOrNull ?? _brand;
+        _brand =
+            _brands.where((item) => item.code == brandCode).firstOrNull ?? _brand;
       }
       if (typeCode.isNotEmpty) {
-        _type = _types.where((item) => item.code == typeCode).firstOrNull ?? _type;
+        _type =
+            _types.where((item) => item.code == typeCode).firstOrNull ?? _type;
       }
       if (colourCode.isNotEmpty) {
-        _color = _colors.where((item) => item.code == colourCode).firstOrNull ?? _color;
+        _color =
+            _colors.where((item) => item.code == colourCode).firstOrNull ??
+            _color;
       }
       if (activityCode.isNotEmpty) {
-        _activity =
-            _activities.where((item) => item.code == activityCode).firstOrNull ?? _activity;
+        _activity = _activities
+                .where((item) => item.code == activityCode)
+                .firstOrNull ??
+            _activity;
       }
     });
-    await _reloadModels();
-    if (!mounted || modelCode.isEmpty) return;
-    setState(() {
-      _model = _models.where((item) => item.code == modelCode).firstOrNull ?? _model;
-    });
+    await _reloadModels(preferredModelCode: modelCode);
   }
 
-  void _applyProspect(Map<String, String> row) {
+  Future<void> _applyProspect(Map<String, String> row) async {
     String v(String key) {
       final value = row[key] ?? '';
       return value == '-' ? '' : value;
     }
 
+    // Pref16 Province, Pref17 CityCode, Pref18 DistrictCode
     final cityCode = v('Pref17');
     final cityName = v('Pref6');
     final districtCode = v('Pref18');
     final districtName = v('Pref7');
+    final address = v('Pref4');
+    final birth = v('Pref8');
+    final religion = v('Pref9');
     setState(() {
       _name.text = v('Pref3').isEmpty ? _name.text : v('Pref3');
       _phone.text = v('Pref2').isEmpty ? _phone.text : v('Pref2');
       if (v('Pref5').isNotEmpty) _phone2.text = v('Pref5');
-      if (v('Pref4').isNotEmpty) _address.text = v('Pref4');
-      if (v('Pref8').isNotEmpty) _birth = v('Pref8');
-      if (v('Pref9').isNotEmpty) _religion = v('Pref9');
+      if (address.isNotEmpty) _address.text = address;
+      if (birth.isNotEmpty && birth != '1/1/1900' && birth != '01/01/1900') {
+        _birth = birth;
+      }
+      if (religion.isNotEmpty) _religion = religion;
       if (v('Pref10').isNotEmpty) _pic.text = v('Pref10');
       if (cityCode.isNotEmpty) {
-        _city = _cities.where((item) => item.cityCode == cityCode).firstOrNull ?? _city;
+        _city =
+            _cities.where((item) => item.cityCode == cityCode).firstOrNull ??
+            _city;
       } else if (cityName.isNotEmpty) {
-        _city = _cities.where((item) => item.cityName == cityName).firstOrNull ?? _city;
+        _city =
+            _cities.where((item) => item.cityName == cityName).firstOrNull ??
+            _city;
       }
     });
-    _reloadDistricts(preferredCode: districtCode, preferredName: districtName);
+    await _reloadDistricts(
+      preferredCode: districtCode,
+      preferredName: districtName,
+    );
+  }
+
+  Future<void> _applyCustomerAddress(Map<String, String> row) async {
+    String v(String key) {
+      final value = row[key] ?? '';
+      return value == '-' ? '' : value;
+    }
+
+    final cityName = v('Pref8');
+    final districtName = v('Pref9');
+    setState(() {
+      if (v('Pref5').isNotEmpty) _address.text = v('Pref5');
+      if (v('Pref3').isNotEmpty &&
+          v('Pref3') != '1/1/1900' &&
+          v('Pref3') != '01/01/1900') {
+        _birth = v('Pref3');
+      }
+      if (v('Pref4').isNotEmpty) _religion = v('Pref4');
+      if (v('Pref7').isNotEmpty) _phone2.text = v('Pref7');
+      if (cityName.isNotEmpty && _city == null) {
+        _city =
+            _cities.where((item) => item.cityName == cityName).firstOrNull ??
+            _city;
+      }
+    });
+    if (_city != null && _district == null) {
+      await _reloadDistricts(preferredName: districtName);
+    }
   }
 
   void _applyCustomer(Map<String, String> row) {
@@ -258,7 +340,7 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     });
   }
 
-  Future<void> _reloadModels() async {
+  Future<void> _reloadModels({String preferredModelCode = ''}) async {
     if (_brand == null || _type == null) return;
     final models = await context.read<MasterDataProvider>().getModels(
           brandCode: _brand!.code,
@@ -267,7 +349,13 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     if (!mounted) return;
     setState(() {
       _models = models;
-      _model = models.isNotEmpty ? models.first : null;
+      if (preferredModelCode.isNotEmpty) {
+        _model =
+            models.where((item) => item.code == preferredModelCode).firstOrNull ??
+            (models.isEmpty ? null : models.first);
+      } else {
+        _model = models.isNotEmpty ? models.first : null;
+      }
     });
   }
 
