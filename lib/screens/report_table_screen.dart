@@ -31,6 +31,8 @@ class ReportTableScreen extends StatefulWidget {
 
 class _ReportTableScreenState extends State<ReportTableScreen> {
   late Future<List<Map<String, String>>> _future;
+  final _hScroll = ScrollController();
+  final _vScroll = ScrollController();
 
   @override
   void initState() {
@@ -38,8 +40,19 @@ class _ReportTableScreenState extends State<ReportTableScreen> {
     _future = Future(widget.loader);
   }
 
+  @override
+  void dispose() {
+    _hScroll.dispose();
+    _vScroll.dispose();
+    super.dispose();
+  }
+
   List<ReportColumn> _columns(List<Map<String, String>> rows) {
-    if (widget.columns.isNotEmpty) return widget.columns;
+    if (widget.columns.isNotEmpty) {
+      return widget.columns
+          .where((column) => rows.any((row) => (row[column.key] ?? '').trim().isNotEmpty))
+          .toList();
+    }
     if (rows.isEmpty) return const [];
     return rows.first.keys
         .where((key) => rows.any((row) => (row[key] ?? '').trim().isNotEmpty))
@@ -69,7 +82,7 @@ class _ReportTableScreenState extends State<ReportTableScreen> {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '${rows.length} data',
+                    '${rows.length} data · geser kanan/kiri untuk lihat kolom',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -81,56 +94,84 @@ class _ReportTableScreenState extends State<ReportTableScreen> {
                     padding: EdgeInsets.zero,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(22),
-                      child: Scrollbar(
-                        thumbVisibility: true,
-                        child: SingleChildScrollView(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Table(
-                              border: TableBorder.symmetric(
-                                inside: const BorderSide(color: AppColors.line),
-                              ),
-                              defaultColumnWidth: const IntrinsicColumnWidth(),
-                              defaultVerticalAlignment:
-                                  TableCellVerticalAlignment.middle,
-                              children: [
-                                TableRow(
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.navy,
-                                  ),
-                                  children: [
-                                    _headerCell('No'),
-                                    ...columns.map(
-                                      (column) => _headerCell(column.label),
-                                    ),
-                                  ],
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Scrollbar(
+                            controller: _hScroll,
+                            thumbVisibility: true,
+                            notificationPredicate: (n) =>
+                                n.metrics.axis == Axis.horizontal,
+                            child: SingleChildScrollView(
+                              controller: _hScroll,
+                              scrollDirection: Axis.horizontal,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: constraints.maxWidth,
+                                  minHeight: constraints.maxHeight,
                                 ),
-                                ...List.generate(rows.length, (index) {
-                                  final row = rows[index];
-                                  final odd = index.isOdd;
-                                  return TableRow(
-                                    decoration: BoxDecoration(
-                                      color: odd
-                                          ? AppColors.cream
-                                          : Colors.white,
-                                    ),
-                                    children: [
-                                      _cell('${index + 1}', numeric: true),
-                                      ...columns.map(
-                                        (column) => _cell(
-                                          row[column.key] ?? '',
-                                          phone: widget.phoneKey == column.key
-                                              ? (row[column.key] ?? '')
-                                              : '',
+                                child: Scrollbar(
+                                  controller: _vScroll,
+                                  thumbVisibility: true,
+                                  child: SingleChildScrollView(
+                                    controller: _vScroll,
+                                    child: Table(
+                                      border: TableBorder.symmetric(
+                                        inside: const BorderSide(
+                                          color: AppColors.line,
                                         ),
                                       ),
-                                    ],
-                                  );
-                                }),
-                              ],
+                                      defaultColumnWidth:
+                                          const IntrinsicColumnWidth(),
+                                      defaultVerticalAlignment:
+                                          TableCellVerticalAlignment.middle,
+                                      children: [
+                                        TableRow(
+                                          decoration: const BoxDecoration(
+                                            color: AppColors.navy,
+                                          ),
+                                          children: [
+                                            _headerCell('No'),
+                                            ...columns.map(
+                                              (column) =>
+                                                  _headerCell(column.label),
+                                            ),
+                                          ],
+                                        ),
+                                        ...List.generate(rows.length, (index) {
+                                          final row = rows[index];
+                                          final odd = index.isOdd;
+                                          return TableRow(
+                                            decoration: BoxDecoration(
+                                              color: odd
+                                                  ? AppColors.cream
+                                                  : Colors.white,
+                                            ),
+                                            children: [
+                                              _cell(
+                                                '${index + 1}',
+                                                numeric: true,
+                                              ),
+                                              ...columns.map(
+                                                (column) => _cell(
+                                                  row[column.key] ?? '',
+                                                  phone:
+                                                      widget.phoneKey ==
+                                                          column.key
+                                                      ? (row[column.key] ?? '')
+                                                      : '',
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ),
                   ),
@@ -339,24 +380,29 @@ List<ReportColumn> reportColumns(String report) {
       ];
     case 'Daily Sales':
       return const [
+        ReportColumn('Pref5', 'Sales'),
+        ReportColumn('Pref6', 'OS'),
+        ReportColumn('Pref7', 'Target'),
+        ReportColumn('Pref8', 'Today'),
+        ReportColumn('Pref9', 'Total'),
+        ReportColumn('Pref10', 'N-1'),
+        ReportColumn('Pref11', 'Potensi DO'),
+      ];
+    case 'Daily Sales Detail':
+      return const [
         ReportColumn('Pref2', 'CAB'),
         ReportColumn('Pref5', 'TDO'),
         ReportColumn('Pref6', 'TUE'),
         ReportColumn('Pref7', 'OS'),
-        ReportColumn('Pref8', 'PP Today'),
-        ReportColumn('Pref9', 'SPK Today'),
+        ReportColumn('Pref8', 'PPTODAY'),
+        ReportColumn('Pref9', 'SPKTODAY'),
         ReportColumn('Pref10', 'TSPK'),
         ReportColumn('Pref11', 'TSPK-1'),
-      ];
-    case 'Daily Sales Detail':
-      return const [
-        ReportColumn('Pref3', 'Name'),
-        ReportColumn('Pref5', 'OS'),
-        ReportColumn('Pref6', 'Target'),
-        ReportColumn('Pref7', 'Today'),
-        ReportColumn('Pref8', 'Total'),
-        ReportColumn('Pref9', 'N-1'),
-        ReportColumn('Pref10', 'Potensi DO'),
+        ReportColumn('Pref12', 'DO'),
+        ReportColumn('Pref13', 'TUE'),
+        ReportColumn('Pref14', 'TBP'),
+        ReportColumn('Pref15', 'TPS'),
+        ReportColumn('Pref16', 'TOI'),
       ];
     case 'Weekly Sales':
       return const [
@@ -365,29 +411,86 @@ List<ReportColumn> reportColumns(String report) {
         ReportColumn('Pref7', 'Target SPK'),
         ReportColumn('Pref8', 'Target DO'),
         ReportColumn('Pref9', 'OS'),
+        ReportColumn('Pref10', 'PP'),
+        ReportColumn('Pref11', 'SPK'),
+        ReportColumn('Pref12', 'DO'),
+        ReportColumn('Pref13', 'Total'),
+        ReportColumn('Pref14', 'W1'),
+        ReportColumn('Pref15', 'W2'),
+        ReportColumn('Pref16', 'W3'),
+        ReportColumn('Pref17', 'W4'),
+        ReportColumn('Pref18', 'W5'),
+        ReportColumn('Pref19', 'Total'),
       ];
     case 'Monthly Activity':
       return const [
-        ReportColumn('Pref1', 'Dealer Cabang'),
-        ReportColumn('Pref2', 'Activity'),
-        ReportColumn('Pref3', 'Prospect'),
-        ReportColumn('Pref4', 'SPK'),
-        ReportColumn('Pref5', 'DO'),
+        ReportColumn('Pref2', 'Dealer Cabang'),
+        ReportColumn('Pref4', 'Target'),
+        ReportColumn('Pref5', 'Achievement'),
+        ReportColumn('Pref6', '% Ach'),
+        ReportColumn('Pref7', 'PP'),
+        ReportColumn('Pref8', 'SPK'),
+        ReportColumn('Pref9', 'Walk In PP'),
+        ReportColumn('Pref10', 'Walk In SPK'),
+        ReportColumn('Pref11', 'Digital PP'),
       ];
     case 'Monthly Summary SPV':
       return const [
+        ReportColumn('Pref1', 'Kode Cabang'),
         ReportColumn('Pref2', 'SPV Code'),
         ReportColumn('Pref3', 'SPV Name'),
-        ReportColumn('Pref4', 'Prospect'),
-        ReportColumn('Pref5', 'SPK'),
-        ReportColumn('Pref6', 'DO'),
-        ReportColumn('Pref7', 'Total'),
+        ReportColumn('Pref4', 'Total PP'),
+        ReportColumn('Pref5', 'Total HP'),
+        ReportColumn('Pref6', 'Total SPK'),
+        ReportColumn('Pref7', 'Total DO'),
       ];
     case 'Monthly Summary BM':
+      return const [
+        ReportColumn('Pref1', 'Kode Cabang'),
+        ReportColumn('Pref2', 'SPV Code'),
+        ReportColumn('Pref3', 'SPV Name'),
+        ReportColumn('Pref4', 'Sales Code'),
+        ReportColumn('Pref5', 'Sales Name'),
+        ReportColumn('Pref6', 'Total PP'),
+        ReportColumn('Pref7', 'Total HP'),
+        ReportColumn('Pref8', 'Total SPK'),
+        ReportColumn('Pref9', 'Total DO'),
+      ];
     case 'Monthly Summary GM':
+      return const [
+        ReportColumn('Pref1', 'Kode Cabang'),
+        ReportColumn('Pref2', 'Nama Cabang'),
+        ReportColumn('Pref3', 'Total PP'),
+        ReportColumn('Pref4', 'Total HP'),
+        ReportColumn('Pref5', 'Total SPK'),
+        ReportColumn('Pref6', 'Total DO'),
+      ];
     case 'Daily Sales GM':
+      return const [
+        ReportColumn('Pref1', 'Cabang'),
+        ReportColumn('Pref11', 'T.ATPM'),
+        ReportColumn('Pref2', 'OS'),
+        ReportColumn('Pref3', 'SPK'),
+        ReportColumn('Pref4', 'TSPK'),
+        ReportColumn('Pref5', 'TSPK M-1'),
+        ReportColumn('Pref6', 'DO'),
+        ReportColumn('Pref7', 'UE'),
+        ReportColumn('Pref8', 'TUE'),
+        ReportColumn('Pref9', 'TPart'),
+        ReportColumn('Pref10', 'TBP'),
+      ];
     case 'FGOC':
-      return const [];
+      return const [
+        ReportColumn('Pref2', 'CABANG'),
+        ReportColumn('Pref4', 'TARGET'),
+        ReportColumn('Pref5', 'PP'),
+        ReportColumn('Pref6', 'ACH'),
+        ReportColumn('Pref7', 'SPK'),
+        ReportColumn('Pref9', 'PP M-1'),
+        ReportColumn('Pref10', 'SPK M-1'),
+        ReportColumn('Pref11', 'DO M-1'),
+        ReportColumn('Pref12', 'GROWTH'),
+      ];
     default:
       return const [];
   }

@@ -5,6 +5,7 @@ import '../models/code_name.dart';
 import '../models/history_row.dart';
 import '../providers/auth_provider.dart';
 import '../providers/master_data_provider.dart';
+import '../providers/prospect_provider.dart';
 import '../providers/spk_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
@@ -134,17 +135,95 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     await _reloadModels();
     await _reloadDistricts();
     if (!mounted) return;
-    if (user != null && widget.action != SpkListAction.create) {
-      final branch = user.busCode;
-      final rows = await context.read<SpkProvider>().getCustomerSPK(
-            branchCode: branch,
-            idNo: widget.row.idNo,
-            historyNo: widget.row.historyId,
-            spkNo: widget.row.spkNo,
-          );
-      if (mounted && rows.isNotEmpty) _applyCustomer(rows.first);
+    if (user != null) {
+      final prospect = context.read<ProspectProvider>();
+      // Tarik data prospect (alamat/kota/district) yang sudah diisi sebelumnya
+      final prospectRows = await prospect.findProspect2(
+        filterTlp: '',
+        filterId: widget.row.idNo,
+        user: user.username,
+      );
+      if (mounted && prospectRows.isNotEmpty) _applyProspect(prospectRows.first);
+      // Tarik brand/type/model/warna dari history unit
+      final hist = await prospect.getHistoryEdit(
+        kodeCabang: user.historyBranch,
+        idNo: widget.row.idNo,
+        historyId: widget.row.historyId,
+        userCreated: user.username,
+      );
+      final histRow = hist?.toRows(maxPref: 14).firstOrNull;
+      if (mounted && histRow != null) await _applyHistoryUnit(histRow);
+      if (widget.action != SpkListAction.create) {
+        final rows = await context.read<SpkProvider>().getCustomerSPK(
+              branchCode: user.busCode,
+              idNo: widget.row.idNo,
+              historyNo: widget.row.historyId,
+              spkNo: widget.row.spkNo,
+            );
+        if (mounted && rows.isNotEmpty) _applyCustomer(rows.first);
+      }
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _applyHistoryUnit(Map<String, String> row) async {
+    String c(String key) {
+      final value = row[key] ?? '';
+      return value == '-' ? '' : value;
+    }
+
+    final brandCode = c('Pref3');
+    final typeCode = c('Pref4');
+    final modelCode = c('Pref5');
+    final colourCode = c('Pref7');
+    final activityCode = c('Pref8');
+    setState(() {
+      if (brandCode.isNotEmpty) {
+        _brand = _brands.where((item) => item.code == brandCode).firstOrNull ?? _brand;
+      }
+      if (typeCode.isNotEmpty) {
+        _type = _types.where((item) => item.code == typeCode).firstOrNull ?? _type;
+      }
+      if (colourCode.isNotEmpty) {
+        _color = _colors.where((item) => item.code == colourCode).firstOrNull ?? _color;
+      }
+      if (activityCode.isNotEmpty) {
+        _activity =
+            _activities.where((item) => item.code == activityCode).firstOrNull ?? _activity;
+      }
+    });
+    await _reloadModels();
+    if (!mounted || modelCode.isEmpty) return;
+    setState(() {
+      _model = _models.where((item) => item.code == modelCode).firstOrNull ?? _model;
+    });
+  }
+
+  void _applyProspect(Map<String, String> row) {
+    String v(String key) {
+      final value = row[key] ?? '';
+      return value == '-' ? '' : value;
+    }
+
+    final cityCode = v('Pref17');
+    final cityName = v('Pref6');
+    final districtCode = v('Pref18');
+    final districtName = v('Pref7');
+    setState(() {
+      _name.text = v('Pref3').isEmpty ? _name.text : v('Pref3');
+      _phone.text = v('Pref2').isEmpty ? _phone.text : v('Pref2');
+      if (v('Pref5').isNotEmpty) _phone2.text = v('Pref5');
+      if (v('Pref4').isNotEmpty) _address.text = v('Pref4');
+      if (v('Pref8').isNotEmpty) _birth = v('Pref8');
+      if (v('Pref9').isNotEmpty) _religion = v('Pref9');
+      if (v('Pref10').isNotEmpty) _pic.text = v('Pref10');
+      if (cityCode.isNotEmpty) {
+        _city = _cities.where((item) => item.cityCode == cityCode).firstOrNull ?? _city;
+      } else if (cityName.isNotEmpty) {
+        _city = _cities.where((item) => item.cityName == cityName).firstOrNull ?? _city;
+      }
+    });
+    _reloadDistricts(preferredCode: districtCode, preferredName: districtName);
   }
 
   void _applyCustomer(Map<String, String> row) {
@@ -156,11 +235,11 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     setState(() {
       _customerCode = v('Pref1');
       _name.text = v('Pref2').isEmpty ? _name.text : v('Pref2');
-      _birth = v('Pref3');
+      if (v('Pref3').isNotEmpty) _birth = v('Pref3');
       if (v('Pref4').isNotEmpty) _religion = v('Pref4');
-      _address.text = v('Pref5');
+      if (v('Pref5').isNotEmpty) _address.text = v('Pref5');
       _phone.text = v('Pref6').isEmpty ? _phone.text : v('Pref6');
-      _phone2.text = v('Pref7');
+      if (v('Pref7').isNotEmpty) _phone2.text = v('Pref7');
       final top = v('Pref8');
       if (top == '1') {
         _payType = 'Cash';
@@ -169,13 +248,13 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
       }
       if (v('Pref9').isNotEmpty) _spkNo = v('Pref9');
       _manual.text = v('Pref10');
-      _stnk.text = v('Pref11');
-      _npwp.text = v('Pref12');
-      _desc.text = v('Pref14');
+      if (v('Pref11').isNotEmpty) _stnk.text = v('Pref11');
+      if (v('Pref12').isNotEmpty) _npwp.text = v('Pref12');
+      if (v('Pref14').isNotEmpty) _desc.text = v('Pref14');
       _faktur = v('Pref15') == '1';
-      _fakturName.text = v('Pref16');
-      _dp.text = v('Pref17');
-      _price.text = v('Pref18');
+      if (v('Pref16').isNotEmpty) _fakturName.text = v('Pref16');
+      if (v('Pref17').isNotEmpty) _dp.text = v('Pref17');
+      if (v('Pref18').isNotEmpty) _price.text = v('Pref18');
     });
   }
 
@@ -192,7 +271,10 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     });
   }
 
-  Future<void> _reloadDistricts() async {
+  Future<void> _reloadDistricts({
+    String preferredCode = '',
+    String preferredName = '',
+  }) async {
     if (_city == null) return;
     final items = await context.read<MasterDataProvider>().getDistricts(
           provinceCode: _city!.provinceCode,
@@ -201,7 +283,30 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     if (!mounted) return;
     setState(() {
       _districts = items;
-      _district = items.isNotEmpty ? items.first : null;
+      DistrictItem? match;
+      if (preferredCode.isNotEmpty) {
+        match = items.where((item) => item.districtCode == preferredCode).firstOrNull;
+      }
+      if (match == null && preferredName.isNotEmpty) {
+        match = items.where((item) => item.districtName == preferredName).firstOrNull;
+      }
+      _district = match ?? (items.isNotEmpty ? items.first : null);
+    });
+  }
+
+  String _stnkOrName() {
+    final stnk = _stnk.text.trim();
+    return stnk.isEmpty ? _name.text.trim() : stnk;
+  }
+
+  void _toggleFaktur(bool value) {
+    setState(() {
+      _faktur = value;
+      if (value) {
+        _fakturName.text = _stnkOrName();
+      } else {
+        _fakturName.clear();
+      }
     });
   }
 
@@ -209,6 +314,85 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     if (!_canSave) return;
     final user = context.read<AuthProvider>().user;
     if (user == null) return;
+
+    final isApprove = SpkListAction.isApproveAction(widget.action);
+    if (isApprove) {
+      final spkNo = _spkNo.isNotEmpty ? _spkNo : widget.row.spkNo;
+      if (spkNo.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('SPK Number not found')),
+        );
+        return;
+      }
+      setState(() => _saving = true);
+      final provider = context.read<SpkProvider>();
+      final branch = widget.row.branchCode.isNotEmpty
+          ? widget.row.branchCode
+          : user.busCode;
+      final success = await provider.createSPK({
+        'prmIDNo': widget.row.idNo,
+        'prmUserCreated': user.username,
+        'prmHistoryID': widget.row.historyId,
+        'prmBranchCode': branch,
+        'prmSPKNo': spkNo,
+        'prmAction': widget.action,
+        'prmModelCode': 'XX',
+        'prmBrandCode': '',
+        'prmTypeCode': '',
+        'prmColourCode': '',
+        'prmQty': '1',
+        'prmTOP': '',
+        'prmTOP2': '',
+        'prmMName': _name.text,
+        'prmMAddress': '',
+        'prmMPhone2': '',
+        'prmMKTPNo': '',
+        'prmMBirthDate': '1/1/1900',
+        'prmMReligion': '',
+        'prmMPIC': '',
+        'prmMJobCode': '',
+        'prmMLOBCode': '',
+        'prmMUserLevel': user.userGroup,
+        'prmSalesCode': user.salesCode,
+        'prmMProvinceCode': '',
+        'prmMCityCode': '',
+        'prmMDistrictCode': '',
+        'prmCustomerCode': '',
+        'prmSPKManual': '',
+        'prmSTNK': '',
+        'prmNPWP': '',
+        'prmDescription': '',
+        'prmIsFaktur': '0',
+        'prmFaktur': '',
+        'prmDPInfo': '0',
+        'prmSPKPrice': '0',
+        'prmHPDate': _date,
+        'prmSPKDate': _date,
+        'prmFGOCContectId': '',
+        'prmFGOCContectName': '',
+        'prmFGOCContectPhone': '',
+        'prmFGOCContectPosition': '',
+        'prmActivityCode': '',
+      });
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'SPK successfully approved'
+                : provider.errorMessage.isEmpty
+                ? 'Failed to approve SPK'
+                : provider.errorMessage,
+          ),
+        ),
+      );
+      if (success) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      return;
+    }
+
     if (_name.text.trim().isEmpty || _phone.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill the blank field')),
@@ -382,66 +566,33 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
                   onChanged: (value) => setState(() => _religion = value ?? '-'),
                 ),
                 const SizedBox(height: 14),
-                AppDropdown<CityItem>(
+                AppAutoText<CityItem>(
+                  key: ValueKey('spk-city-${_city?.cityCode ?? ''}'),
                   label: 'City',
                   value: _city,
-                  items: _cities
-                      .map(
-                        (item) => DropdownMenuItem(
-                          value: item,
-                          child: Text(item.cityName, overflow: TextOverflow.ellipsis),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (item) {
-                    setState(() => _city = item);
+                  items: _cities,
+                  displayString: (item) => item.cityName,
+                  prefixIcon: Icons.location_city_outlined,
+                  onSelected: (item) {
+                    setState(() {
+                      _city = item;
+                      _district = null;
+                    });
                     _reloadDistricts();
                   },
                 ),
                 const SizedBox(height: 14),
-                AppDropdown<DistrictItem>(
+                AppAutoText<DistrictItem>(
+                  key: ValueKey(
+                    'spk-district-${_city?.cityCode ?? ''}-${_district?.districtCode ?? ''}',
+                  ),
                   label: 'District',
                   value: _district,
-                  items: _districts
-                      .map(
-                        (item) => DropdownMenuItem(
-                          value: item,
-                          child: Text(
-                            item.districtName,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (item) => setState(() => _district = item),
+                  items: _districts,
+                  displayString: (item) => item.districtName,
+                  prefixIcon: Icons.map_outlined,
+                  onSelected: (item) => setState(() => _district = item),
                 ),
-                if (company) ...[
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    controller: _pic,
-                    label: 'PIC',
-                    prefixIcon: Icons.person_outline,
-                  ),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    controller: _fgocName,
-                    label: 'FGOC Contact',
-                    prefixIcon: Icons.apartment_outlined,
-                  ),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    controller: _fgocPhone,
-                    label: 'FGOC Phone',
-                    keyboardType: TextInputType.phone,
-                    prefixIcon: Icons.phone_outlined,
-                  ),
-                  const SizedBox(height: 14),
-                  AppTextField(
-                    controller: _fgocPosition,
-                    label: 'FGOC Position',
-                    prefixIcon: Icons.work_outline,
-                  ),
-                ],
               ],
             ),
           ),
@@ -533,15 +684,15 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
                 ),
                 const SizedBox(height: 14),
                 AppTextField(
-                  controller: _manual,
-                  label: 'SPK Manual No',
-                  prefixIcon: Icons.tag_outlined,
-                ),
-                const SizedBox(height: 14),
-                AppTextField(
                   controller: _stnk,
                   label: 'STNK Name',
                   prefixIcon: Icons.directions_car_outlined,
+                  onChanged: (_) {
+                    if (_faktur) {
+                      _fakturName.text = _stnkOrName();
+                      setState(() {});
+                    }
+                  },
                 ),
                 const SizedBox(height: 14),
                 AppTextField(
@@ -551,13 +702,14 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Faktur'),
+                  title: const Text('Is Faktur'),
                   value: _faktur,
-                  onChanged: (value) => setState(() => _faktur = value),
+                  onChanged: _toggleFaktur,
                 ),
                 AppTextField(
                   controller: _fakturName,
                   label: 'Faktur An',
+                  readOnly: _faktur,
                   prefixIcon: Icons.assignment_outlined,
                 ),
                 const SizedBox(height: 14),

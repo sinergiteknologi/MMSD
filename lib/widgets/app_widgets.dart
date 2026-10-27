@@ -448,3 +448,140 @@ class AppDateField extends StatelessWidget {
     );
   }
 }
+
+class AppAutoText<T extends Object> extends StatefulWidget {
+  const AppAutoText({
+    super.key,
+    required this.label,
+    required this.items,
+    required this.displayString,
+    required this.onSelected,
+    this.value,
+    this.prefixIcon,
+    this.enabled = true,
+  });
+
+  final String label;
+  final T? value;
+  final List<T> items;
+  final String Function(T item) displayString;
+  final ValueChanged<T?> onSelected;
+  final IconData? prefixIcon;
+  final bool enabled;
+
+  @override
+  State<AppAutoText<T>> createState() => _AppAutoTextState<T>();
+}
+
+class _AppAutoTextState<T extends Object> extends State<AppAutoText<T>> {
+  TextEditingController? _fieldController;
+  String _lastExternal = '';
+
+  @override
+  void didUpdateWidget(covariant AppAutoText<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final next = widget.value == null
+        ? ''
+        : widget.displayString(widget.value as T);
+    if (next != _lastExternal && _fieldController != null) {
+      _lastExternal = next;
+      _fieldController!.text = next;
+    }
+  }
+
+  Iterable<T> _options(String query) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return widget.items.take(40);
+    return widget.items
+        .where(
+          (item) => widget.displayString(item).toLowerCase().contains(needle),
+        )
+        .take(40);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Autocomplete<T>(
+      initialValue: TextEditingValue(
+        text: widget.value == null
+            ? ''
+            : widget.displayString(widget.value as T),
+      ),
+      optionsBuilder: (value) {
+        if (!widget.enabled) return const Iterable.empty();
+        return _options(value.text);
+      },
+      displayStringForOption: widget.displayString,
+      onSelected: (item) {
+        _lastExternal = widget.displayString(item);
+        widget.onSelected(item);
+      },
+      fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+        _fieldController = controller;
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          enabled: widget.enabled,
+          onChanged: (text) {
+            if (text.trim().isEmpty) {
+              _lastExternal = '';
+              widget.onSelected(null);
+            }
+          },
+          onSubmitted: (_) => onSubmitted(),
+          decoration: InputDecoration(
+            labelText: widget.label,
+            hintText: 'Ketik untuk cari...',
+            prefixIcon: widget.prefixIcon == null
+                ? null
+                : Icon(widget.prefixIcon, color: AppColors.muted, size: 20),
+            suffixIcon: controller.text.isEmpty
+                ? const Icon(Icons.search, color: AppColors.muted, size: 20)
+                : IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: !widget.enabled
+                        ? null
+                        : () {
+                            controller.clear();
+                            _lastExternal = '';
+                            widget.onSelected(null);
+                            setState(() {});
+                          },
+                  ),
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        final list = options.toList();
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240, maxWidth: 420),
+              child: list.isEmpty
+                  ? const ListTile(
+                      dense: true,
+                      title: Text('Data tidak ditemukan'),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      itemCount: list.length,
+                      itemBuilder: (context, index) {
+                        final item = list[index];
+                        return ListTile(
+                          dense: true,
+                          title: Text(widget.displayString(item)),
+                          onTap: () => onSelected(item),
+                        );
+                      },
+                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

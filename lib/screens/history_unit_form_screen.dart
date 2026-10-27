@@ -55,7 +55,7 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
   Future<void> _boot() async {
     HistoryUnit? initial = widget.initial;
     final hp = widget.hotProspect;
-    if (hp != null && initial == null) {
+    if (hp != null) {
       final user = context.read<AuthProvider>().user;
       if (user != null) {
         final pref = await context.read<ProspectProvider>().getHistoryEdit(
@@ -64,17 +64,33 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
               historyId: hp.row.historyId,
               userCreated: user.username,
             );
-        final row = pref?.toRows(maxPref: 8).firstOrNull;
+        final row = pref?.toRows(maxPref: 14).firstOrNull;
         if (row != null) {
+          String c(String key) {
+            final value = row[key] ?? '';
+            return value == '-' ? '' : value;
+          }
           initial = HistoryUnit(
-            brandCode: row['Pref3'] ?? '',
-            typeCode: row['Pref4'] ?? '',
-            modelCode: row['Pref5'] ?? '',
-            qty: row['Pref6'] ?? '1',
-            colourCode: row['Pref7'] ?? '',
-            activityCode: row['Pref8'] ?? '',
+            brandCode: c('Pref3'),
+            typeCode: c('Pref4'),
+            modelCode: c('Pref5'),
+            qty: c('Pref6').isEmpty ? '1' : c('Pref6'),
+            colourCode: c('Pref7'),
+            activityCode: c('Pref8'),
+            provinceCode: c('Pref9').isNotEmpty ? c('Pref9') : hp.provinceCode,
+            cityCode: c('Pref10').isNotEmpty ? c('Pref10') : hp.cityCode,
+            districtCode: c('Pref11').isNotEmpty ? c('Pref11') : hp.districtCode,
+            subActivityCode: c('Pref12'),
+            fleetCode: c('Pref13'),
+            actNumber: c('Pref14'),
           );
-          _qty.text = initial.qty.isEmpty ? '1' : initial.qty;
+          _qty.text = initial.qty;
+        } else {
+          initial = HistoryUnit(
+            provinceCode: hp.provinceCode,
+            cityCode: hp.cityCode,
+            districtCode: hp.districtCode,
+          );
         }
       }
     }
@@ -93,8 +109,8 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
     final types = await master.getTypes();
     final colors = await master.getColors();
     final activities = await master.getActivities();
-    final cities = _isHotProspect ? <CityItem>[] : await master.getCities();
-    final fleets = _isHotProspect ? <CodeName>[] : await master.getFleet();
+    final cities = await master.getCities();
+    final fleets = await master.getFleet();
     if (!mounted) return;
     final initial = seeded ?? widget.initial;
     _seed = initial;
@@ -112,13 +128,14 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
           (activities.isEmpty ? null : activities.first);
       _fleet = _pick(fleets, initial?.fleetCode) ?? (fleets.isEmpty ? null : fleets.first);
       _city = cities.where((item) => item.cityCode == initial?.cityCode).firstOrNull ??
+          cities
+              .where((item) => item.provinceCode == initial?.provinceCode && initial!.provinceCode.isNotEmpty)
+              .firstOrNull ??
           (cities.isEmpty ? null : cities.first);
     });
     await _reloadModels();
-    if (!_isHotProspect) {
-      await _reloadSub();
-      await _reloadDistricts();
-    }
+    await _reloadSub();
+    await _reloadDistricts();
   }
 
   CodeName? _pick(List<CodeName> items, String? code) {
@@ -333,38 +350,32 @@ class _HistoryUnitFormScreenState extends State<HistoryUnitFormScreen> {
                       onChanged: (item) => setState(() => _subActivity = item),
                     ),
                     const SizedBox(height: 14),
-                    AppDropdown<CityItem>(
+                    AppAutoText<CityItem>(
+                      key: ValueKey('unit-city-${_city?.cityCode ?? ''}'),
                       label: 'City',
                       value: _city,
-                      items: _cities
-                          .map(
-                            (item) => DropdownMenuItem(
-                              value: item,
-                              child: Text(item.cityName, overflow: TextOverflow.ellipsis),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (item) {
-                        setState(() => _city = item);
+                      items: _cities,
+                      displayString: (item) => item.cityName,
+                      prefixIcon: Icons.location_city_outlined,
+                      onSelected: (item) {
+                        setState(() {
+                          _city = item;
+                          _district = null;
+                        });
                         _reloadDistricts();
                       },
                     ),
                     const SizedBox(height: 14),
-                    AppDropdown<DistrictItem>(
+                    AppAutoText<DistrictItem>(
+                      key: ValueKey(
+                        'unit-district-${_city?.cityCode ?? ''}-${_district?.districtCode ?? ''}',
+                      ),
                       label: 'District',
                       value: _district,
-                      items: _districts
-                          .map(
-                            (item) => DropdownMenuItem(
-                              value: item,
-                              child: Text(
-                                item.districtName,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (item) => setState(() => _district = item),
+                      items: _districts,
+                      displayString: (item) => item.districtName,
+                      prefixIcon: Icons.map_outlined,
+                      onSelected: (item) => setState(() => _district = item),
                     ),
                     const SizedBox(height: 14),
                     AppDropdown<CodeName>(

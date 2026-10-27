@@ -8,15 +8,18 @@ class SpkListAction {
   static bool isApprovedStatus(String status) =>
       status.trim().toLowerCase() == 'approved';
 
+  static bool isApproveAction(String action) =>
+      action.toUpperCase().contains('APPROVED');
+
   static String resolve({
     required String userStatus,
     required String spkStatus,
   }) {
-    final role = userStatus.trim();
-    final status = spkStatus.trim();
-    if (role == 'Sales' && status == 'Waiting App 1') return edit;
-    if (role == 'SPV' && status == 'Waiting App 1') return approved1;
-    if (role == 'BM' && status == 'Waiting App 2') return approved2;
+    final role = userStatus.trim().toUpperCase();
+    final status = spkStatus.trim().toLowerCase();
+    if (role == 'SALES' && status == 'waiting app 1') return edit;
+    if (role == 'SPV' && status == 'waiting app 1') return approved1;
+    if (role == 'BM' && status == 'waiting app 2') return approved2;
     return view;
   }
 
@@ -26,8 +29,19 @@ class SpkListAction {
   static bool canSave(String action) => action != view;
 
   static String saveLabel(String action) {
-    if (action.contains('APPROVED')) return 'Approved';
+    if (isApproveAction(action)) return 'Approve';
     if (action == edit) return 'Update';
     return 'Create SPK';
+  }
+
+  static String listActionLabel({
+    required String userStatus,
+    required String spkStatus,
+  }) {
+    final action = resolve(userStatus: userStatus, spkStatus: spkStatus);
+    if (isApproveAction(action)) return 'Approve';
+    if (action == edit) return 'Edit';
+    if (isApprovedStatus(spkStatus)) return 'View Indent';
+    return 'Select';
   }
 }

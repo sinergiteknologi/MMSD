@@ -37,9 +37,26 @@ class _HistoryUnitListScreenState extends State<HistoryUnitListScreen> {
   }
 
   Future<void> _add() async {
+    final draft = widget.draft;
+    HistoryUnit? seed;
+    if (_units.isNotEmpty) {
+      final last = _units.last;
+      seed = HistoryUnit(
+        provinceCode: last.provinceCode,
+        cityCode: last.cityCode,
+        districtCode: last.districtCode,
+      );
+    } else if (draft.provinceCode.isNotEmpty || draft.cityCode.isNotEmpty) {
+      seed = HistoryUnit(
+        provinceCode: draft.provinceCode,
+        cityCode: draft.cityCode,
+      );
+    }
     final added = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const HistoryUnitFormScreen()),
+      MaterialPageRoute(
+        builder: (_) => HistoryUnitFormScreen(initial: seed),
+      ),
     );
     if (added == true) await _reload();
   }

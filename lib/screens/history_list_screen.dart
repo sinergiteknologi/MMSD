@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/history_row.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/app_status.dart';
+import '../utils/spk_list_action.dart';
 import '../widgets/app_widgets.dart';
 
 class HistoryListScreen extends StatefulWidget {
@@ -48,6 +51,16 @@ class _HistoryListScreenState extends State<HistoryListScreen> {
     return rows
         .map((row) => HistoryRow.fromPref(row, isSpk: widget.isSpk))
         .toList();
+  }
+
+  String _buttonLabel() {
+    if (!widget.isSpk || _selected == null) return widget.actionLabel;
+    final userStatus =
+        context.read<AuthProvider>().user?.userStatus ?? '';
+    return SpkListAction.listActionLabel(
+      userStatus: userStatus,
+      spkStatus: _selected!.status,
+    );
   }
 
   @override
@@ -118,7 +131,7 @@ class _HistoryListScreenState extends State<HistoryListScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: AppPrimaryButton(
-                    label: widget.actionLabel,
+                    label: _buttonLabel(),
                     onPressed: _selected == null
                         ? null
                         : () => widget.onSelect(_selected!),

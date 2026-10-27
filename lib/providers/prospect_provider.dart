@@ -83,6 +83,7 @@ class ProspectProvider with ChangeNotifier, SafeNotifier {
         filterId: filterId,
         user: user,
       ),
+      maxPref: 19,
     );
   }
 
@@ -163,7 +164,7 @@ class ProspectProvider with ChangeNotifier, SafeNotifier {
       userCreated: userCreated,
     );
     if (xml == null) return null;
-    return XmlParser.parseDataPref(xml, maxPref: 8);
+    return XmlParser.parseDataPref(xml, maxPref: 14);
   }
 
   Future<bool> checkPhone({required String tlp, required String user}) async {

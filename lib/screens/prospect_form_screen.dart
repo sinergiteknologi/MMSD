@@ -750,21 +750,14 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                   ],
                   if (_company || _showForm) ...[
                     const SizedBox(height: 14),
-                    AppDropdown<CityItem>(
+                    AppAutoText<CityItem>(
+                      key: ValueKey('city-${_city?.cityCode ?? ''}'),
                       label: 'City',
                       value: _city,
-                      items: _cities
-                          .map(
-                            (item) => DropdownMenuItem(
-                              value: item,
-                              child: Text(
-                                item.cityName,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (item) => setState(() => _city = item),
+                      items: _cities,
+                      displayString: (item) => item.cityName,
+                      prefixIcon: Icons.location_city_outlined,
+                      onSelected: (item) => setState(() => _city = item),
                     ),
                     const SizedBox(height: 22),
                     AppPrimaryButton(

@@ -77,7 +77,6 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     if (!mounted) return;
     setState(() {
       _cities = cities;
-      // PY Type = Cash/Credit saja (bukan M_TOP / GetDataTOP)
       _lobs = lobs;
       _lob = lobs.isNotEmpty ? lobs.first : null;
       _city = cities.isNotEmpty ? cities.first : null;
@@ -87,33 +86,67 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final rows = await context.read<ProspectProvider>().getCustomer(
-          branchCode: user.historyBranch,
-          idNo: widget.row.idNo,
-        );
-    if (mounted && rows.isNotEmpty) _applyCustomer(rows.first);
+    final prospect = context.read<ProspectProvider>();
+    // Tarik data CRM_M_Prospect dulu (alamat/kota/district dari saat create)
+    final prospectRows = await prospect.findProspect2(
+      filterTlp: '',
+      filterId: widget.row.idNo,
+      user: user.username,
+    );
+    if (mounted && prospectRows.isNotEmpty) _applyProspect(prospectRows.first);
+    // Overlay dari master customer jika sudah ada (setelah SPK)
+    final custRows = await prospect.getCustomer(
+      branchCode: user.historyBranch,
+      idNo: widget.row.idNo,
+    );
+    if (mounted && custRows.isNotEmpty) _applyCustomer(custRows.first);
     if (mounted) setState(() => _loading = false);
   }
 
-  void _applyCustomer(Map<String, String> row) {
-    String v(String key) {
-      final value = row[key] ?? '';
-      return value == '-' ? '' : value;
-    }
+  String _v(Map<String, String> row, String key) {
+    final value = row[key] ?? '';
+    return value == '-' ? '' : value;
+  }
 
-    final cityName = v('Pref8');
-    final districtName = v('Pref9');
-    final top = v('Pref10');
+  void _applyProspect(Map<String, String> row) {
+    final cityCode = _v(row, 'Pref17');
+    final cityName = _v(row, 'Pref6');
+    final districtCode = _v(row, 'Pref18');
+    final districtName = _v(row, 'Pref7');
+    final lobCode = _v(row, 'Pref19');
+    final lobName = _v(row, 'Pref11');
     setState(() {
-      _name.text = v('Pref2').isEmpty ? _name.text : v('Pref2');
-      if (v('Pref3').isNotEmpty) _birth = v('Pref3');
-      _address.text = v('Pref5');
-      _phone.text = v('Pref6').isEmpty ? _phone.text : v('Pref6');
-      _phone2.text = v('Pref7');
-      // Pref10 = TOPCode customer; PY Type hanya Cash/Credit
-      if (top == 'Cash' || top == 'Credit') {
-        _top = top;
+      _name.text = _v(row, 'Pref3').isEmpty ? _name.text : _v(row, 'Pref3');
+      _phone.text = _v(row, 'Pref2').isEmpty ? _phone.text : _v(row, 'Pref2');
+      _phone2.text = _v(row, 'Pref5');
+      _address.text = _v(row, 'Pref4');
+      if (_v(row, 'Pref8').isNotEmpty) _birth = _v(row, 'Pref8');
+      if (_v(row, 'Pref10').isNotEmpty) _pic.text = _v(row, 'Pref10');
+      if (lobCode.isNotEmpty) {
+        _lob = _lobs.where((item) => item.code == lobCode).firstOrNull ?? _lob;
+      } else if (lobName.isNotEmpty) {
+        _lob = _lobs.where((item) => item.name == lobName).firstOrNull ?? _lob;
       }
+      if (cityCode.isNotEmpty) {
+        _city = _cities.where((item) => item.cityCode == cityCode).firstOrNull ?? _city;
+      } else if (cityName.isNotEmpty) {
+        _city = _cities.where((item) => item.cityName == cityName).firstOrNull ?? _city;
+      }
+    });
+    _reloadDistricts(preferredName: districtName, preferredCode: districtCode);
+  }
+
+  void _applyCustomer(Map<String, String> row) {
+    final cityName = _v(row, 'Pref8');
+    final districtName = _v(row, 'Pref9');
+    final top = _v(row, 'Pref10');
+    setState(() {
+      _name.text = _v(row, 'Pref2').isEmpty ? _name.text : _v(row, 'Pref2');
+      if (_v(row, 'Pref3').isNotEmpty) _birth = _v(row, 'Pref3');
+      if (_v(row, 'Pref5').isNotEmpty) _address.text = _v(row, 'Pref5');
+      _phone.text = _v(row, 'Pref6').isEmpty ? _phone.text : _v(row, 'Pref6');
+      if (_v(row, 'Pref7').isNotEmpty) _phone2.text = _v(row, 'Pref7');
+      if (top == 'Cash' || top == 'Credit') _top = top;
       if (cityName.isNotEmpty) {
         _city = _cities.where((item) => item.cityName == cityName).firstOrNull ?? _city;
       }
@@ -121,7 +154,10 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     _reloadDistricts(preferredName: districtName);
   }
 
-  Future<void> _reloadDistricts({String preferredName = ''}) async {
+  Future<void> _reloadDistricts({
+    String preferredName = '',
+    String preferredCode = '',
+  }) async {
     if (_city == null) return;
     final items = await context.read<MasterDataProvider>().getDistricts(
           provinceCode: _city!.provinceCode,
@@ -130,10 +166,14 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     if (!mounted) return;
     setState(() {
       _districts = items;
-      _district = preferredName.isEmpty
-          ? (items.isNotEmpty ? items.first : null)
-          : items.where((item) => item.districtName == preferredName).firstOrNull ??
-              (items.isNotEmpty ? items.first : null);
+      DistrictItem? match;
+      if (preferredCode.isNotEmpty) {
+        match = items.where((item) => item.districtCode == preferredCode).firstOrNull;
+      }
+      if (match == null && preferredName.isNotEmpty) {
+        match = items.where((item) => item.districtName == preferredName).firstOrNull;
+      }
+      _district = match ?? (items.isNotEmpty ? items.first : null);
     });
   }
 
@@ -274,35 +314,32 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
                   onPicked: (date) => setState(() => _birth = AppDateFormat.mdy(date)),
                 ),
                 const SizedBox(height: 14),
-                AppDropdown<CityItem>(
+                AppAutoText<CityItem>(
+                  key: ValueKey('hp-city-${_city?.cityCode ?? ''}'),
                   label: 'City',
                   value: _city,
-                  items: _cities
-                      .map(
-                        (item) => DropdownMenuItem(
-                          value: item,
-                          child: Text(item.cityName, overflow: TextOverflow.ellipsis),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (item) {
-                    setState(() => _city = item);
+                  items: _cities,
+                  displayString: (item) => item.cityName,
+                  prefixIcon: Icons.location_city_outlined,
+                  onSelected: (item) {
+                    setState(() {
+                      _city = item;
+                      _district = null;
+                    });
                     _reloadDistricts();
                   },
                 ),
                 const SizedBox(height: 14),
-                AppDropdown<DistrictItem>(
+                AppAutoText<DistrictItem>(
+                  key: ValueKey(
+                    'hp-district-${_city?.cityCode ?? ''}-${_district?.districtCode ?? ''}',
+                  ),
                   label: 'District',
                   value: _district,
-                  items: _districts
-                      .map(
-                        (item) => DropdownMenuItem(
-                          value: item,
-                          child: Text(item.districtName, overflow: TextOverflow.ellipsis),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (item) => setState(() => _district = item),
+                  items: _districts,
+                  displayString: (item) => item.districtName,
+                  prefixIcon: Icons.map_outlined,
+                  onSelected: (item) => setState(() => _district = item),
                 ),
                 const SizedBox(height: 22),
                 AppPrimaryButton(label: 'Lanjut Unit', onPressed: _next),
