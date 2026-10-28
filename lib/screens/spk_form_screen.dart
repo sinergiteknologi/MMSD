@@ -23,7 +23,10 @@ class SpkFormScreen extends StatefulWidget {
   final HistoryRow row;
   final String action;
 
-  bool get isCompany => row.idNo.isNotEmpty && !row.idNo.startsWith('1');
+  // Digit 1 IDNo = Personal, digit 2 = FGOC (sama Android T207/T208/T209)
+  bool get isPersonal => row.idNo.isNotEmpty && row.idNo.startsWith('1');
+  bool get isFgoc => row.idNo.isNotEmpty && row.idNo.startsWith('2');
+  bool get isCompany => isFgoc;
 
   @override
   State<SpkFormScreen> createState() => _SpkFormScreenState();
@@ -58,7 +61,7 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
   final _fgocPosition = TextEditingController();
   String _spkNo = '';
   String _customerCode = '';
-  final String _fgocId = '';
+  String _fgocId = '';
   List<CodeName> _tops = const [];
   List<CityItem> _cities = [];
   List<DistrictItem> _districts = [];
@@ -139,11 +142,13 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     if (!mounted) return;
     if (user != null) {
       final prospect = context.read<ProspectProvider>();
-      // 1) Alamat/kota/district/agama dari CRM_M_Prospect
+      // 1) Query khusus SPK Registration (prmSPK=1) + HistoryID
       final prospectRows = await prospect.findProspect2(
         filterTlp: '',
         filterId: widget.row.idNo,
         user: user.username,
+        historyId: widget.row.historyId,
+        forSpk: true,
       );
       if (mounted && prospectRows.isNotEmpty) {
         await _applyProspect(prospectRows.first);
@@ -261,6 +266,11 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
       }
       if (religion.isNotEmpty) _religion = religion;
       if (v('Pref10').isNotEmpty) _pic.text = v('Pref10');
+      // Pref12–15 = FGOC contact (penting untuk IDNo 2.x)
+      if (v('Pref12').isNotEmpty) _fgocId = v('Pref12');
+      if (v('Pref13').isNotEmpty) _fgocName.text = v('Pref13');
+      if (v('Pref14').isNotEmpty) _fgocPhone.text = v('Pref14');
+      if (v('Pref15').isNotEmpty) _fgocPosition.text = v('Pref15');
       if (cityCode.isNotEmpty) {
         _city =
             _cities.where((item) => item.cityCode == cityCode).firstOrNull ??
@@ -599,12 +609,11 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     if (_loading) {
       return const Scaffold(body: AppLoading(message: 'Memuat form SPK...'));
     }
-    final company = widget.isCompany;
     return Scaffold(
       appBar: AppBar(
         title: Text(
           widget.action == SpkListAction.create
-              ? (company ? 'SPK Company' : 'SPK Personal')
+              ? (widget.isFgoc ? 'SPK Company' : 'SPK Personal')
               : 'SPK Information',
         ),
       ),

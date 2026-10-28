@@ -95,12 +95,14 @@ class ApiService {
     required String filterId,
     required String user,
     String historyId = '',
+    bool forSpk = false,
   }) {
     return _callWithBisnis('GetFindProspect2', {
       'prmFilter': filterTlp,
       'prmFilter2': filterId,
       'prmUser': user,
       if (historyId.isNotEmpty) 'prmHistoryID': historyId,
+      if (forSpk) 'prmSPK': '1',
     });
   }
 

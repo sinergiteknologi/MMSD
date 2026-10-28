@@ -23,7 +23,9 @@ class HotProspectFormScreen extends StatefulWidget {
   final String hpDate;
   final String hpDesc;
 
+  // Digit 1 IDNo = Personal, selain itu (2.x) = FGOC
   bool get isPersonal => row.idNo.isNotEmpty && row.idNo.startsWith('1');
+  bool get isFgoc => row.idNo.isNotEmpty && row.idNo.startsWith('2');
 
   @override
   State<HotProspectFormScreen> createState() => _HotProspectFormScreenState();
@@ -87,12 +89,12 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       return;
     }
     final prospect = context.read<ProspectProvider>();
-    // FGOC: PIC/kota/district dari ProspectHistory; personal: dari Prospect
+    // Query beda Personal (1.x) vs FGOC (2.x) di API berdasarkan digit pertama IDNo
     final prospectRows = await prospect.findProspect2(
       filterTlp: '',
       filterId: widget.row.idNo,
       user: user.username,
-      historyId: widget.isPersonal ? '' : widget.row.historyId,
+      historyId: widget.row.historyId,
     );
     if (mounted && prospectRows.isNotEmpty) _applyProspect(prospectRows.first);
     // Overlay dari master customer jika sudah ada (setelah SPK)
@@ -246,7 +248,7 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isPersonal ? 'Data Personal' : 'Data Company'),
+        title: Text(widget.isFgoc ? 'Data Company' : 'Data Personal'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),

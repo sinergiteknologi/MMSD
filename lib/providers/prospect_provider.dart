@@ -77,6 +77,7 @@ class ProspectProvider with ChangeNotifier, SafeNotifier {
     required String filterId,
     required String user,
     String historyId = '',
+    bool forSpk = false,
   }) {
     return _loadPref(
       () => _apiService.getFindProspect2(
@@ -84,6 +85,7 @@ class ProspectProvider with ChangeNotifier, SafeNotifier {
         filterId: filterId,
         user: user,
         historyId: historyId,
+        forSpk: forSpk,
       ),
       maxPref: 19,
     );
