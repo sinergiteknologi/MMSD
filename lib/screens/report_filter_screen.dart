@@ -281,11 +281,16 @@ class _ReportFilterScreenState extends State<ReportFilterScreen> {
           date1: _date,
         );
       case 'Weekly Sales':
-        return reports.getWeeklySales(branchCode: user.busCode, date: _date);
+        // SP: @BranchCode, @Periode (YYYYMM)
+        return reports.getWeeklySales(
+          branchCode: user.busCode,
+          date: AppDateFormat.periodeFromMdy(_date),
+        );
       case 'Monthly Activity':
+        // SP: @BranchCode, @Periode (YYYYMM)
         return reports.getMonthlyActivity(
           branchCode: user.busCode,
-          date: _date,
+          date: AppDateFormat.periodeFromMdy(_date),
         );
       case 'Monthly Summary SPV':
         return reports.getMonthlySumSPV(branchCode: user.busCode, date: _date);
