@@ -397,6 +397,7 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
                   displayString: (item) => item.cityName,
                   prefixIcon: Icons.location_city_outlined,
                   onSelected: (item) {
+                    if (item == null) return;
                     setState(() {
                       _city = item;
                       _district = null;
