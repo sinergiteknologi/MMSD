@@ -69,8 +69,6 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
   bool _loading = true;
   bool _cityReady = false;
   bool _districtReady = false;
-  /// Debug panel di UI — hapus setelah masalah ketemu
-  String _debugInfo = '';
 
   @override
   void initState() {
@@ -208,10 +206,7 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
 
     if (user == null) {
       fail('User login null — tidak bisa GetFindProspect2.');
-      setState(() {
-        _debugInfo = debugLines.join('\n');
-        _loading = false;
-      });
+      setState(() => _loading = false);
       await _showFailPopup(failures, debugLines.join('\n'));
       return;
     }
@@ -367,10 +362,7 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
 
     note('DONE city="${_cityCtrl.text}" district="${_districtCtrl.text}" ready=$_cityReady/$_districtReady');
     if (mounted) {
-      setState(() {
-        _debugInfo = debugLines.join('\n');
-        _loading = false;
-      });
+      setState(() => _loading = false);
       if (failures.isNotEmpty) {
         await _showFailPopup(failures, debugLines.join('\n'));
       }
@@ -515,25 +507,6 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
-          if (_debugInfo.isNotEmpty)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3CD),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFFECB5)),
-              ),
-              child: SelectableText(
-                _debugInfo,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  height: 1.35,
-                ),
-              ),
-            ),
           AppCard(
             child: Column(
               children: [
