@@ -15,10 +15,12 @@ class ProspectProvider with ChangeNotifier, SafeNotifier {
 
   bool _isLoading = false;
   String _errorMessage = '';
+  String _lastApiDetail = '';
   List<Map<String, String>> _rows = [];
 
   bool get isLoading => _isLoading;
   String get errorMessage => _errorMessage;
+  String get lastApiDetail => _lastApiDetail;
   List<Map<String, String>> get rows => _rows;
 
   Future<void> _ensureConfigured() async {
@@ -42,15 +44,28 @@ class ProspectProvider with ChangeNotifier, SafeNotifier {
       if (xml == null) {
         _rows = [];
         _errorMessage = 'Failed to getting data';
+        final fail = _apiService.lastFailure;
+        _lastApiDetail =
+            '${_apiService.lastErrorMessage}${fail?.statusCode != null ? ' (HTTP ${fail!.statusCode})' : ''}';
+        // ignore: avoid_print
+        print('[HP-CITY] _loadPref xml=null maxPref=$maxPref detail=$_lastApiDetail');
       } else {
+        // ignore: avoid_print
+        print('[HP-CITY] _loadPref raw len=${xml.length} head=${xml.length > 400 ? xml.substring(0, 400) : xml}');
         _rows = XmlParser.parseDataPref(
           xml,
           maxPref: maxPref,
         ).toRows(maxPref: maxPref);
+        _lastApiDetail = '';
+        // ignore: avoid_print
+        print('[HP-CITY] _loadPref parsed rows=${_rows.length} first=${_rows.isEmpty ? {} : _rows.first}');
       }
-    } catch (_) {
+    } catch (e, st) {
       _rows = [];
       _errorMessage = 'Failed to getting data';
+      _lastApiDetail = e.toString();
+      // ignore: avoid_print
+      print('[HP-CITY] _loadPref EXCEPTION $e\n$st');
     }
     _isLoading = false;
     notifySafely();

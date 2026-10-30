@@ -27,6 +27,12 @@ class MasterDataProvider with ChangeNotifier {
   double get syncProgress => _syncProgress;
   String get syncMessage => _syncMessage;
   String get syncError => _syncError;
+  String get lastApiError {
+    final fail = _apiService.lastFailure;
+    if (fail == null) return _apiService.lastErrorMessage;
+    final code = fail.statusCode != null ? ' (HTTP ${fail.statusCode})' : '';
+    return '${fail.message}$code';
+  }
 
   Future<void> configureFromPrefs() async {
     final server = await _prefService.getString(PrefService.keyServer);
@@ -305,6 +311,54 @@ class MasterDataProvider with ChangeNotifier {
         .toList();
   }
 
+  String _prefCell(Map<String, String> row, String key) {
+    final value = (row[key] ?? '').trim();
+    return value == '-' ? '' : value;
+  }
+
+  /// Semua city langsung dari API (GetDataCity tanpa filter).
+  /// Return: (items, fromApi, errorDetail)
+  Future<({List<CityItem> items, bool fromApi, String error})>
+      fetchAllCitiesFromApiDetailed() async {
+    await configureFromPrefs();
+    final xml = await _apiService.getCity();
+    // ignore: avoid_print
+    print('[HP-CITY] GetDataCity xml=${xml == null ? "NULL err=$lastApiError" : "len=${xml.length}"}');
+    if (xml == null) {
+      final local = await getCities();
+      return (items: local, fromApi: false, error: lastApiError);
+    }
+    final rows = XmlParser.parseDataPref(xml, maxPref: 3).toRows(maxPref: 3);
+    // ignore: avoid_print
+    print('[HP-CITY] GetDataCity parsed rows=${rows.length}');
+    if (rows.isEmpty) {
+      final local = await getCities();
+      return (
+        items: local,
+        fromApi: false,
+        error: 'GetDataCity response kosong',
+      );
+    }
+    final list = rows
+        .map(
+          (row) => CityItem(
+            provinceCode: _prefCell(row, 'Pref1'),
+            cityCode: _prefCell(row, 'Pref2'),
+            cityName: _prefCell(row, 'Pref3'),
+          ),
+        )
+        .where((item) => item.cityCode.isNotEmpty && item.cityName.isNotEmpty)
+        .toList();
+    // ignore: avoid_print
+    print('[HP-CITY] GetDataCity filtered count=${list.length}');
+    return (items: list, fromApi: true, error: '');
+  }
+
+  Future<List<CityItem>> fetchAllCitiesFromApi() async {
+    final result = await fetchAllCitiesFromApiDetailed();
+    return result.items;
+  }
+
   Future<List<DistrictItem>> getDistricts({
     required String provinceCode,
     required String cityCode,
@@ -325,6 +379,65 @@ class MasterDataProvider with ChangeNotifier {
           ),
         )
         .toList();
+  }
+
+  Future<List<DistrictItem>> _localAllDistricts() async {
+    final rows = await _dbService.queryTable(
+      'M_DISTRICT',
+      orderBy: 'DistrictName',
+    );
+    return rows
+        .map(
+          (row) => DistrictItem(
+            provinceCode: row['ProvinceCode']?.toString() ?? '',
+            cityCode: row['CityCode']?.toString() ?? '',
+            districtCode: row['DistrictCode']?.toString() ?? '',
+            districtName: row['DistrictName']?.toString() ?? '',
+          ),
+        )
+        .toList();
+  }
+
+  /// Semua district langsung dari API (GetDataDistrict tanpa filter).
+  Future<({List<DistrictItem> items, bool fromApi, String error})>
+      fetchAllDistrictsFromApiDetailed() async {
+    await configureFromPrefs();
+    final xml = await _apiService.getDistrict();
+    if (xml == null) {
+      return (
+        items: await _localAllDistricts(),
+        fromApi: false,
+        error: lastApiError,
+      );
+    }
+    final rows = XmlParser.parseDataPref(xml, maxPref: 4).toRows(maxPref: 4);
+    if (rows.isEmpty) {
+      return (
+        items: await _localAllDistricts(),
+        fromApi: false,
+        error: 'GetDataDistrict response kosong',
+      );
+    }
+    final list = rows
+        .map(
+          (row) => DistrictItem(
+            provinceCode: _prefCell(row, 'Pref1'),
+            cityCode: _prefCell(row, 'Pref2'),
+            districtCode: _prefCell(row, 'Pref3'),
+            districtName: _prefCell(row, 'Pref4'),
+          ),
+        )
+        .where(
+          (item) =>
+              item.districtCode.isNotEmpty && item.districtName.isNotEmpty,
+        )
+        .toList();
+    return (items: list, fromApi: true, error: '');
+  }
+
+  Future<List<DistrictItem>> fetchAllDistrictsFromApi() async {
+    final result = await fetchAllDistrictsFromApiDetailed();
+    return result.items;
   }
 
   Future<List<CodeName>> getFactors() async {

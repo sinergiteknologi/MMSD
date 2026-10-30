@@ -383,8 +383,10 @@ class AppDropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selected = items.any((item) => item.value == value) ? value : null;
     return DropdownButtonFormField<T>(
-      initialValue: items.any((item) => item.value == value) ? value : null,
+      key: ValueKey('dd-$label-${selected?.hashCode ?? 'none'}'),
+      initialValue: selected,
       isExpanded: true,
       items: items,
       onChanged: onChanged,
@@ -461,12 +463,14 @@ class AppAutoText<T extends Object> extends StatefulWidget {
     required this.displayString,
     required this.onSelected,
     this.value,
+    this.controller,
     this.prefixIcon,
     this.enabled = true,
   });
 
   final String label;
   final T? value;
+  final TextEditingController? controller;
   final List<T> items;
   final String Function(T item) displayString;
   final ValueChanged<T?> onSelected;
@@ -478,19 +482,63 @@ class AppAutoText<T extends Object> extends StatefulWidget {
 }
 
 class _AppAutoTextState<T extends Object> extends State<AppAutoText<T>> {
-  TextEditingController? _fieldController;
-  String _lastExternal = '';
+  TextEditingController? _ownedController;
+  late final FocusNode _focusNode;
+  String _syncedValue = '';
+
+  TextEditingController get _controller =>
+      widget.controller ?? _ownedController!;
+
+  String get _valueText => widget.value == null
+      ? ''
+      : widget.displayString(widget.value as T);
+
+  @override
+  void initState() {
+    super.initState();
+    // Prioritas: value match → teks controller yang sudah diisi parent
+    final fromValue = _valueText;
+    final fromCtrl = widget.controller?.text.trim() ?? '';
+    _syncedValue = fromValue.isNotEmpty
+        ? fromValue
+        : fromCtrl;
+    if (widget.controller == null) {
+      _ownedController = TextEditingController(text: _syncedValue);
+    } else if (_syncedValue.isNotEmpty &&
+        widget.controller!.text != _syncedValue) {
+      widget.controller!.text = _syncedValue;
+    }
+    _focusNode = FocusNode();
+  }
 
   @override
   void didUpdateWidget(covariant AppAutoText<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final next = widget.value == null
-        ? ''
-        : widget.displayString(widget.value as T);
-    if (next != _lastExternal && _fieldController != null) {
-      _lastExternal = next;
-      _fieldController!.text = next;
+    final next = _valueText;
+    if (next.isNotEmpty) {
+      if (_controller.text == next) {
+        _syncedValue = next;
+        return;
+      }
+      _syncedValue = next;
+      _controller.value = TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: next.length),
+      );
+      return;
     }
+    // value null: jangan hapus teks jika parent pakai controller eksternal (autofill)
+    _syncedValue = next;
+    if (widget.controller == null && _controller.text.isNotEmpty) {
+      _controller.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ownedController?.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   Iterable<T> _options(String query) {
@@ -505,30 +553,31 @@ class _AppAutoTextState<T extends Object> extends State<AppAutoText<T>> {
 
   @override
   Widget build(BuildContext context) {
-    return Autocomplete<T>(
-      initialValue: TextEditingValue(
-        text: widget.value == null
-            ? ''
-            : widget.displayString(widget.value as T),
-      ),
+    return RawAutocomplete<T>(
+      textEditingController: _controller,
+      focusNode: _focusNode,
+      displayStringForOption: widget.displayString,
       optionsBuilder: (value) {
         if (!widget.enabled) return const Iterable.empty();
         return _options(value.text);
       },
-      displayStringForOption: widget.displayString,
       onSelected: (item) {
-        _lastExternal = widget.displayString(item);
+        final text = widget.displayString(item);
+        _syncedValue = text;
+        _controller.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
         widget.onSelected(item);
       },
       fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
-        _fieldController = controller;
         return TextField(
           controller: controller,
           focusNode: focusNode,
           enabled: widget.enabled,
           onChanged: (text) {
             if (text.trim().isEmpty) {
-              _lastExternal = '';
+              _syncedValue = '';
               widget.onSelected(null);
             }
           },
@@ -547,7 +596,7 @@ class _AppAutoTextState<T extends Object> extends State<AppAutoText<T>> {
                         ? null
                         : () {
                             controller.clear();
-                            _lastExternal = '';
+                            _syncedValue = '';
                             widget.onSelected(null);
                             setState(() {});
                           },

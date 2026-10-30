@@ -11,6 +11,12 @@ import '../utils/date_format.dart';
 import '../widgets/app_widgets.dart';
 import 'history_unit_form_screen.dart';
 
+void _hpLog(String message) {
+  debugPrint('[HP-CITY] $message');
+  // ignore: avoid_print
+  print('[HP-CITY] $message');
+}
+
 class HotProspectFormScreen extends StatefulWidget {
   const HotProspectFormScreen({
     super.key,
@@ -23,7 +29,6 @@ class HotProspectFormScreen extends StatefulWidget {
   final String hpDate;
   final String hpDesc;
 
-  // Digit 1 IDNo = Personal, selain itu (2.x) = FGOC
   bool get isPersonal => row.idNo.isNotEmpty && row.idNo.startsWith('1');
   bool get isFgoc => row.idNo.isNotEmpty && row.idNo.startsWith('2');
 
@@ -37,19 +42,35 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
   final _phone2 = TextEditingController();
   final _address = TextEditingController();
   final _pic = TextEditingController();
+  /// Teks Autocomplete City/District — diisi HANYA setelah match berhasil
+  final _cityCtrl = TextEditingController();
+  final _districtCtrl = TextEditingController();
+
   String _birth = '';
   String _top = 'Cash';
-  List<CodeName> _tops = const [
+  final _tops = const [
     CodeName(code: 'Cash', name: 'Cash'),
     CodeName(code: 'Credit', name: 'Credit'),
   ];
   List<CodeName> _lobs = [];
-  List<CityItem> _cities = [];
-  List<DistrictItem> _districts = [];
-  CodeName? _lob;
+
+  /// Master dari API — dipakai untuk looping/match, BUKAN ditampilkan mentah
+  List<CityItem> _allCities = [];
+  List<DistrictItem> _allDistricts = [];
+
+  /// Hasil MATCH saja yang jadi value Autocomplete
   CityItem? _city;
   DistrictItem? _district;
+
+  /// District options = hasil filter by city yang sudah di-match
+  List<DistrictItem> _districtItems = [];
+
+  CodeName? _lob;
   bool _loading = true;
+  bool _cityReady = false;
+  bool _districtReady = false;
+  /// Debug panel di UI — hapus setelah masalah ketemu
+  String _debugInfo = '';
 
   @override
   void initState() {
@@ -57,7 +78,9 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     _name.text = widget.row.name;
     _phone.text = widget.row.phone;
     _pic.text = widget.row.pic;
-    _birth = AppDateFormat.mdy(DateTime(DateTime.now().year, DateTime.now().month, 1));
+    _birth = AppDateFormat.mdy(
+      DateTime(DateTime.now().year, DateTime.now().month, 1),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => _boot());
   }
 
@@ -68,72 +91,9 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     _phone2.dispose();
     _address.dispose();
     _pic.dispose();
+    _cityCtrl.dispose();
+    _districtCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _boot() async {
-    final user = context.read<AuthProvider>().user;
-    final master = context.read<MasterDataProvider>();
-    final cities = await master.getCities();
-    final lobs = await master.getLOB();
-    if (!mounted) return;
-    setState(() {
-      _cities = cities;
-      _lobs = lobs;
-      _lob = null;
-      _city = null;
-      _district = null;
-      _districts = [];
-    });
-    if (!mounted || user == null) {
-      if (mounted) setState(() => _loading = false);
-      return;
-    }
-    final prospect = context.read<ProspectProvider>();
-    // Query beda Personal (1.x) vs FGOC (2.x) di API berdasarkan digit pertama IDNo
-    final prospectRows = await prospect.findProspect2(
-      filterTlp: '',
-      filterId: widget.row.idNo,
-      user: user.username,
-      historyId: widget.row.historyId,
-    );
-    if (mounted && prospectRows.isNotEmpty) {
-      await _applyProspect(prospectRows.first);
-    }
-    // Overlay dari master customer jika sudah ada (setelah SPK)
-    final custRows = await prospect.getCustomer(
-      branchCode: user.busCode,
-      idNo: widget.row.idNo,
-    );
-    if (mounted && custRows.isNotEmpty) await _applyCustomer(custRows.first);
-    if (mounted) setState(() => _loading = false);
-  }
-
-  String _v(Map<String, String> row, String key) {
-    final value = row[key] ?? '';
-    return value == '-' ? '' : value;
-  }
-
-  CityItem? _matchCity({
-    String provinceCode = '',
-    String cityCode = '',
-    String cityName = '',
-  }) {
-    if (cityCode.isNotEmpty) {
-      final byCode = _cities.where((item) {
-        if (item.cityCode != cityCode) return false;
-        if (provinceCode.isNotEmpty && item.provinceCode != provinceCode) {
-          return false;
-        }
-        return true;
-      });
-      final match = byCode.firstOrNull;
-      if (match != null) return match;
-    }
-    if (cityName.isNotEmpty) {
-      return _cities.where((item) => item.cityName == cityName).firstOrNull;
-    }
-    return null;
   }
 
   bool _codeEq(String a, String b) {
@@ -146,114 +106,350 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     return nx != null && ny != null && nx == ny;
   }
 
-  Future<void> _applyProspect(Map<String, String> row) async {
-    final provinceCode = _v(row, 'Pref16');
-    final cityCode = _v(row, 'Pref17');
-    final cityName = _v(row, 'Pref6');
-    final districtCode = _v(row, 'Pref18');
-    final districtName = _v(row, 'Pref7');
-    final lobCode = _v(row, 'Pref19');
-    final lobName = _v(row, 'Pref11');
-    final matchedCity = _matchCity(
-      provinceCode: provinceCode,
-      cityCode: cityCode,
-      cityName: cityName,
-    );
-    setState(() {
-      _name.text = _v(row, 'Pref3').isEmpty ? _name.text : _v(row, 'Pref3');
-      _phone.text = _v(row, 'Pref2').isEmpty ? _phone.text : _v(row, 'Pref2');
-      _phone2.text = _v(row, 'Pref5');
-      // Pref4 = CRM_M_Prospect.Address saja (jangan ambil CityName/dll)
-      final addr = _v(row, 'Pref4');
-      if (addr.isNotEmpty && !addr.contains(',')) {
-        _address.text = addr;
-      }
-      if (_v(row, 'Pref8').isNotEmpty && _v(row, 'Pref8') != '01/01/1900') {
-        _birth = _v(row, 'Pref8');
-      }
-      if (_v(row, 'Pref10').isNotEmpty) _pic.text = _v(row, 'Pref10');
-      if (lobCode.isNotEmpty) {
-        _lob = _lobs.where((item) => item.code == lobCode).firstOrNull ?? _lob;
-      } else if (lobName.isNotEmpty) {
-        _lob = _lobs.where((item) => item.name == lobName).firstOrNull ?? _lob;
-      }
-      if (matchedCity != null) _city = matchedCity;
-    });
-    await _reloadDistricts(
-      preferredName: districtName,
-      preferredCode: districtCode,
-      provinceCode: matchedCity?.provinceCode ?? provinceCode,
-      cityCode: matchedCity?.cityCode ?? cityCode,
+  String _v(Map<String, String> row, String key) {
+    final value = (row[key] ?? '').trim();
+    return value == '-' ? '' : value;
+  }
+
+  Future<void> _showFailPopup(List<String> failures, String logDump) async {
+    if (!mounted || failures.isEmpty) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Gagal memuat data'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: SelectableText(
+                [
+                  'IDNo: ${widget.row.idNo}',
+                  'HistoryID: ${widget.row.historyId}',
+                  '',
+                  'Detail kegagalan:',
+                  ...failures.map((e) => '• $e'),
+                  '',
+                  '--- Log ---',
+                  logDump,
+                ].join('\n'),
+                style: const TextStyle(fontSize: 12, height: 1.35),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Future<void> _applyCustomer(Map<String, String> row) async {
-    final cityName = _v(row, 'Pref8');
-    final districtName = _v(row, 'Pref9');
-    final top = _v(row, 'Pref10');
-    // Jangan overwrite kota/district dari ProspectHistory
-    final keepCity = _city != null;
-    setState(() {
-      _name.text = _v(row, 'Pref2').isEmpty ? _name.text : _v(row, 'Pref2');
-      if (_v(row, 'Pref3').isNotEmpty) _birth = _v(row, 'Pref3');
-      if (_v(row, 'Pref5').isNotEmpty) _address.text = _v(row, 'Pref5');
-      _phone.text = _v(row, 'Pref6').isEmpty ? _phone.text : _v(row, 'Pref6');
-      if (_v(row, 'Pref7').isNotEmpty) _phone2.text = _v(row, 'Pref7');
-      if (top == 'Cash' || top == 'Credit') _top = top;
-      if (!keepCity && cityName.isNotEmpty) {
-        _city = _matchCity(cityName: cityName) ?? _city;
+  Future<void> _boot() async {
+    final user = context.read<AuthProvider>().user;
+    final master = context.read<MasterDataProvider>();
+    final prospectApi = context.read<ProspectProvider>();
+    final debugLines = <String>[];
+    final failures = <String>[];
+
+    void note(String msg) {
+      _hpLog(msg);
+      debugLines.add(msg);
+    }
+
+    void fail(String msg) {
+      note('FAIL: $msg');
+      failures.add(msg);
+    }
+
+    note('BOOT start idNo=${widget.row.idNo} historyId=${widget.row.historyId}');
+
+    // =========================================================
+    // STEP 1: ambil SEMUA data City & District dari API (untuk matching)
+    // =========================================================
+    final cityResult = await master.fetchAllCitiesFromApiDetailed();
+    var allCities = cityResult.items;
+    note('STEP1 GetDataCity fromApi=${cityResult.fromApi} count=${allCities.length}');
+    if (!cityResult.fromApi) {
+      fail('GetDataCity gagal/fallback lokal. ${cityResult.error}');
+    }
+    if (allCities.isEmpty) {
+      allCities = await master.getCities();
+      note('STEP1 fallback getCities(local) count=${allCities.length}');
+      if (allCities.isEmpty) {
+        fail('Master City kosong (API & lokal).');
       }
-    });
-    if (!keepCity) {
-      await _reloadDistricts(preferredName: districtName);
+    } else {
+      final sample = allCities
+          .take(3)
+          .map((c) => '${c.provinceCode}|${c.cityCode}|${c.cityName}')
+          .join(' || ');
+      note('STEP1 city sample: $sample');
+    }
+
+    final districtResult = await master.fetchAllDistrictsFromApiDetailed();
+    var allDistricts = districtResult.items;
+    note('STEP1 GetDataDistrict fromApi=${districtResult.fromApi} count=${allDistricts.length}');
+    if (!districtResult.fromApi) {
+      fail('GetDataDistrict gagal/fallback lokal. ${districtResult.error}');
+    }
+    if (allDistricts.isEmpty) {
+      fail('Master District kosong (API & lokal).');
+    }
+
+    final lobs = await master.getLOB();
+    if (!mounted) return;
+
+    _allCities = allCities;
+    _allDistricts = allDistricts;
+    _lobs = lobs;
+
+    if (user == null) {
+      fail('User login null — tidak bisa GetFindProspect2.');
+      setState(() {
+        _debugInfo = debugLines.join('\n');
+        _loading = false;
+      });
+      await _showFailPopup(failures, debugLines.join('\n'));
+      return;
+    }
+
+    // =========================================================
+    // STEP 2: ambil data form Hot Prospect (GetFindProspect2)
+    // =========================================================
+    final historyId = widget.row.historyId.trim();
+    note('STEP2 call GetFindProspect2 filterId=${widget.row.idNo} historyId=$historyId user=${user.username}');
+    final rows = await prospectApi.findProspect2(
+      filterTlp: '',
+      filterId: widget.row.idNo,
+      user: user.username,
+      historyId: historyId == '-' ? '' : historyId,
+    );
+    if (!mounted) return;
+    note('STEP2 rows.length=${rows.length} err=${prospectApi.errorMessage}');
+
+    String provinceCode = '';
+    String cityCode = '';
+    String cityNameApi = '';
+    String districtCode = '';
+    String districtNameApi = '';
+
+    if (rows.isEmpty) {
+      fail(
+        'GetFindProspect2 gagal/kosong. '
+        '${prospectApi.errorMessage} '
+        '${prospectApi.lastApiDetail}',
+      );
+    } else {
+      final hp = rows.first;
+      note('STEP2 raw Prefs: ${hp.entries.map((e) => '${e.key}=${e.value}').join(' | ')}');
+      _fillBasicFields(hp);
+
+      provinceCode = _v(hp, 'Pref16');
+      cityCode = _v(hp, 'Pref17');
+      cityNameApi = _v(hp, 'Pref6');
+      districtCode = _v(hp, 'Pref18');
+      districtNameApi = _v(hp, 'Pref7');
+      note('STEP2 parse Pref6(CityName)=$cityNameApi Pref7(DistrictName)=$districtNameApi');
+      note('STEP2 parse Pref16(Prov)=$provinceCode Pref17(CityCode)=$cityCode Pref18(DistCode)=$districtCode');
+
+      if (provinceCode.isEmpty && cityCode.isEmpty && cityNameApi.isEmpty) {
+        fail(
+          'GetFindProspect2 OK tapi Pref16/Pref17/Pref6 kosong '
+          '(ProvinceCode/CityCode/CityName tidak ada).',
+        );
+      }
+
+      // =========================================================
+      // STEP 3: LOOP data city API → MATCH ProvinceCode + CityCode
+      // =========================================================
+      CityItem? matchedCity;
+      var scanned = 0;
+      for (final c in _allCities) {
+        scanned++;
+        final okCity = cityCode.isNotEmpty && _codeEq(c.cityCode, cityCode);
+        final okProv = provinceCode.isEmpty ||
+            _codeEq(c.provinceCode, provinceCode);
+        if (okCity && okProv) {
+          matchedCity = c;
+          note('STEP3 MATCH by code at#$scanned → ${c.provinceCode}|${c.cityCode}|${c.cityName}');
+          break;
+        }
+      }
+      if (matchedCity == null) {
+        note('STEP3 no match by code after scan=$scanned (need Prov=$provinceCode City=$cityCode)');
+      }
+      if (matchedCity == null && cityNameApi.isNotEmpty) {
+        final want = cityNameApi.toLowerCase();
+        for (final c in _allCities) {
+          if (c.cityName.trim().toLowerCase() == want) {
+            matchedCity = c;
+            note('STEP3 MATCH by name → ${c.provinceCode}|${c.cityCode}|${c.cityName}');
+            break;
+          }
+        }
+        if (matchedCity == null) {
+          note('STEP3 no match by name "$cityNameApi"');
+        }
+      }
+
+      if (matchedCity != null) {
+        _city = matchedCity;
+        _cityCtrl.text = matchedCity.cityName;
+        _cityReady = true;
+        note('STEP3 SET cityCtrl="${_cityCtrl.text}" cityReady=$_cityReady');
+
+        // =========================================================
+        // STEP 4: filter district → MATCH DistrictCode
+        // =========================================================
+        var districtPool = _allDistricts
+            .where(
+              (d) =>
+                  _codeEq(d.provinceCode, matchedCity!.provinceCode) &&
+                  _codeEq(d.cityCode, matchedCity.cityCode),
+            )
+            .toList();
+        note('STEP4 district filter from API pool=${districtPool.length}');
+        if (districtPool.isEmpty) {
+          districtPool = await master.getDistricts(
+            provinceCode: matchedCity.provinceCode,
+            cityCode: matchedCity.cityCode,
+          );
+          note('STEP4 district fallback local pool=${districtPool.length}');
+        }
+        if (!mounted) return;
+        _districtItems = districtPool;
+
+        DistrictItem? matchedDistrict;
+        for (final d in districtPool) {
+          if (districtCode.isNotEmpty &&
+              _codeEq(d.districtCode, districtCode)) {
+            matchedDistrict = d;
+            note('STEP4 MATCH district by code → ${d.districtCode}|${d.districtName}');
+            break;
+          }
+        }
+        if (matchedDistrict == null && districtNameApi.isNotEmpty) {
+          final want = districtNameApi.toLowerCase();
+          for (final d in districtPool) {
+            if (d.districtName.trim().toLowerCase() == want) {
+              matchedDistrict = d;
+              note('STEP4 MATCH district by name → ${d.districtCode}|${d.districtName}');
+              break;
+            }
+          }
+        }
+        if (matchedDistrict == null) {
+          fail(
+            'District tidak match. '
+            'Cari DistrictCode=$districtCode / DistrictName=$districtNameApi '
+            'untuk Prov=${matchedCity.provinceCode} City=${matchedCity.cityCode}. '
+            'Pool=${districtPool.length}',
+          );
+        }
+
+        if (matchedDistrict != null) {
+          _district = matchedDistrict;
+          _districtCtrl.text = matchedDistrict.districtName;
+          _districtReady = true;
+          note('STEP4 SET districtCtrl="${_districtCtrl.text}"');
+        }
+      } else {
+        fail(
+          'City tidak match. '
+          'Cari ProvinceCode=$provinceCode CityCode=$cityCode '
+          'CityName=$cityNameApi dari ${_allCities.length} data city.',
+        );
+      }
+    }
+
+    note('DONE city="${_cityCtrl.text}" district="${_districtCtrl.text}" ready=$_cityReady/$_districtReady');
+    if (mounted) {
+      setState(() {
+        _debugInfo = debugLines.join('\n');
+        _loading = false;
+      });
+      if (failures.isNotEmpty) {
+        await _showFailPopup(failures, debugLines.join('\n'));
+      }
     }
   }
 
-  Future<void> _reloadDistricts({
-    String preferredName = '',
-    String preferredCode = '',
-    String provinceCode = '',
-    String cityCode = '',
-  }) async {
-    final prov = provinceCode.isNotEmpty
-        ? provinceCode
-        : (_city?.provinceCode ?? '');
-    final city = cityCode.isNotEmpty ? cityCode : (_city?.cityCode ?? '');
-    if (prov.isEmpty || city.isEmpty) return;
-    final items = await context.read<MasterDataProvider>().getDistricts(
-          provinceCode: prov,
-          cityCode: city,
-        );
+  void _fillBasicFields(Map<String, String> hp) {
+    final phone = _v(hp, 'Pref2');
+    final phone2 = _v(hp, 'Pref5');
+    if (_v(hp, 'Pref3').isNotEmpty) _name.text = _v(hp, 'Pref3');
+    if (phone.isNotEmpty) {
+      _phone.text = phone;
+    } else if (phone2.isNotEmpty && _phone.text.trim().isEmpty) {
+      _phone.text = phone2;
+    }
+    _phone2.text = phone2;
+    final addr = _v(hp, 'Pref4');
+    if (addr.isNotEmpty && !addr.contains(',')) _address.text = addr;
+    final birth = _v(hp, 'Pref8');
+    if (birth.isNotEmpty && birth != '01/01/1900' && birth != '1/1/1900') {
+      _birth = birth;
+    }
+    if (_v(hp, 'Pref10').isNotEmpty) _pic.text = _v(hp, 'Pref10');
+    final lobCode = _v(hp, 'Pref19');
+    final lobName = _v(hp, 'Pref11');
+    if (lobCode.isNotEmpty) {
+      _lob = _lobs.where((e) => e.code == lobCode).firstOrNull;
+    } else if (lobName.isNotEmpty) {
+      _lob = _lobs.where((e) => e.name == lobName).firstOrNull;
+    }
+  }
+
+  Future<void> _onCityChanged(CityItem? item) async {
+    if (item == null) {
+      setState(() {
+        _city = null;
+        _cityCtrl.clear();
+        _cityReady = false;
+        _district = null;
+        _districtCtrl.clear();
+        _districtItems = [];
+        _districtReady = false;
+      });
+      return;
+    }
+    // City diganti manual → filter ulang district dari data API yang sudah di-load
+    var pool = _allDistricts
+        .where(
+          (d) =>
+              _codeEq(d.provinceCode, item.provinceCode) &&
+              _codeEq(d.cityCode, item.cityCode),
+        )
+        .toList();
+    if (pool.isEmpty) {
+      pool = await context.read<MasterDataProvider>().getDistricts(
+            provinceCode: item.provinceCode,
+            cityCode: item.cityCode,
+          );
+    }
     if (!mounted) return;
     setState(() {
-      _districts = items;
-      DistrictItem? match;
-      if (preferredCode.isNotEmpty) {
-        match = items
-            .where((item) => _codeEq(item.districtCode, preferredCode))
-            .firstOrNull;
-      }
-      if (match == null && preferredName.isNotEmpty) {
-        final want = preferredName.trim().toLowerCase();
-        match = items
-            .where((item) => item.districtName.trim().toLowerCase() == want)
-            .firstOrNull;
-      }
-      // Jangan fallback ke items.first jika ada preferred — biar tidak salah district
-      if (match != null) {
-        _district = match;
-      } else if (preferredCode.isEmpty && preferredName.isEmpty) {
-        _district = items.isNotEmpty ? items.first : null;
-      } else {
-        _district = null;
-      }
+      _city = item;
+      _cityCtrl.text = item.cityName;
+      _cityReady = true;
+      _districtItems = pool;
+      _district = null;
+      _districtCtrl.clear();
+      _districtReady = false;
     });
   }
 
   void _next() {
     if (_top == '-' || _top.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.isPersonal ? 'Please PY Type' : 'Please fill TOP')),
+        SnackBar(
+          content: Text(
+            widget.isPersonal ? 'Please PY Type' : 'Please fill TOP',
+          ),
+        ),
       );
       return;
     }
@@ -308,7 +504,9 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: AppLoading(message: 'Memuat data customer...'));
+      return const Scaffold(
+        body: AppLoading(message: 'Memuat data customer...'),
+      );
     }
     return Scaffold(
       appBar: AppBar(
@@ -317,6 +515,25 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
+          if (_debugInfo.isNotEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3CD),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFECB5)),
+              ),
+              child: SelectableText(
+                _debugInfo,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  height: 1.35,
+                ),
+              ),
+            ),
           AppCard(
             child: Column(
               children: [
@@ -359,7 +576,10 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
                         .map(
                           (item) => DropdownMenuItem(
                             value: item,
-                            child: Text(item.name, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              item.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         )
                         .toList(),
@@ -374,7 +594,10 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
                       .map(
                         (item) => DropdownMenuItem(
                           value: item.code,
-                          child: Text(item.name, overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            item.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       )
                       .toList(),
@@ -384,41 +607,46 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
                 AppDateField(
                   label: 'Birth Date',
                   value: _birth,
-                  onPicked: (date) => setState(() => _birth = AppDateFormat.mdy(date)),
+                  onPicked: (date) =>
+                      setState(() => _birth = AppDateFormat.mdy(date)),
                 ),
                 const SizedBox(height: 14),
+
+                // City Autocomplete — value = HASIL MATCH (bukan dump semua city)
+                // items = master API agar user bisa ganti manual
                 AppAutoText<CityItem>(
                   key: ValueKey(
-                    'hp-city-${_city?.provinceCode ?? ''}-${_city?.cityCode ?? ''}',
+                    'city-match-$_cityReady-${_city?.provinceCode}-${_city?.cityCode}',
                   ),
+                  controller: _cityCtrl,
                   label: 'City',
                   value: _city,
-                  items: _cities,
+                  items: _allCities,
                   displayString: (item) => item.cityName,
                   prefixIcon: Icons.location_city_outlined,
-                  onSelected: (item) {
-                    if (item == null) return;
-                    setState(() {
-                      _city = item;
-                      _district = null;
-                    });
-                    _reloadDistricts(
-                      provinceCode: item.provinceCode,
-                      cityCode: item.cityCode,
-                    );
-                  },
+                  onSelected: _onCityChanged,
                 ),
                 const SizedBox(height: 14),
+
+                // District Autocomplete — value = HASIL MATCH by DistrictCode
+                // items = district yang sudah di-filter by city match
                 AppAutoText<DistrictItem>(
                   key: ValueKey(
-                    'hp-district-${_city?.provinceCode ?? ''}-${_city?.cityCode ?? ''}-${_district?.districtCode ?? ''}',
+                    'district-match-$_districtReady-${_city?.cityCode}-${_district?.districtCode}',
                   ),
+                  controller: _districtCtrl,
                   label: 'District',
                   value: _district,
-                  items: _districts,
+                  items: _districtItems,
                   displayString: (item) => item.districtName,
                   prefixIcon: Icons.map_outlined,
-                  onSelected: (item) => setState(() => _district = item),
+                  onSelected: (item) {
+                    setState(() {
+                      _district = item;
+                      _districtCtrl.text = item?.districtName ?? '';
+                      _districtReady = item != null;
+                    });
+                  },
                 ),
                 const SizedBox(height: 22),
                 AppPrimaryButton(label: 'Lanjut Unit', onPressed: _next),

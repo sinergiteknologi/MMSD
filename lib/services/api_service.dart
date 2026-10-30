@@ -101,7 +101,7 @@ class ApiService {
       'prmFilter': filterTlp,
       'prmFilter2': filterId,
       'prmUser': user,
-      if (historyId.isNotEmpty) 'prmHistoryID': historyId,
+      'prmHistoryID': historyId,
       if (forSpk) 'prmSPK': '1',
     });
   }
