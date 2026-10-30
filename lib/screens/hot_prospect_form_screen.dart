@@ -80,10 +80,11 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     setState(() {
       _cities = cities;
       _lobs = lobs;
-      _lob = lobs.isNotEmpty ? lobs.first : null;
-      _city = cities.isNotEmpty ? cities.first : null;
+      _lob = null;
+      _city = null;
+      _district = null;
+      _districts = [];
     });
-    await _reloadDistricts();
     if (!mounted || user == null) {
       if (mounted) setState(() => _loading = false);
       return;
@@ -96,13 +97,15 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       user: user.username,
       historyId: widget.row.historyId,
     );
-    if (mounted && prospectRows.isNotEmpty) _applyProspect(prospectRows.first);
+    if (mounted && prospectRows.isNotEmpty) {
+      await _applyProspect(prospectRows.first);
+    }
     // Overlay dari master customer jika sudah ada (setelah SPK)
     final custRows = await prospect.getCustomer(
       branchCode: user.busCode,
       idNo: widget.row.idNo,
     );
-    if (mounted && custRows.isNotEmpty) _applyCustomer(custRows.first);
+    if (mounted && custRows.isNotEmpty) await _applyCustomer(custRows.first);
     if (mounted) setState(() => _loading = false);
   }
 
@@ -111,13 +114,51 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
     return value == '-' ? '' : value;
   }
 
-  void _applyProspect(Map<String, String> row) {
+  CityItem? _matchCity({
+    String provinceCode = '',
+    String cityCode = '',
+    String cityName = '',
+  }) {
+    if (cityCode.isNotEmpty) {
+      final byCode = _cities.where((item) {
+        if (item.cityCode != cityCode) return false;
+        if (provinceCode.isNotEmpty && item.provinceCode != provinceCode) {
+          return false;
+        }
+        return true;
+      });
+      final match = byCode.firstOrNull;
+      if (match != null) return match;
+    }
+    if (cityName.isNotEmpty) {
+      return _cities.where((item) => item.cityName == cityName).firstOrNull;
+    }
+    return null;
+  }
+
+  bool _codeEq(String a, String b) {
+    final x = a.trim();
+    final y = b.trim();
+    if (x.isEmpty || y.isEmpty) return false;
+    if (x == y) return true;
+    final nx = int.tryParse(x);
+    final ny = int.tryParse(y);
+    return nx != null && ny != null && nx == ny;
+  }
+
+  Future<void> _applyProspect(Map<String, String> row) async {
+    final provinceCode = _v(row, 'Pref16');
     final cityCode = _v(row, 'Pref17');
     final cityName = _v(row, 'Pref6');
     final districtCode = _v(row, 'Pref18');
     final districtName = _v(row, 'Pref7');
     final lobCode = _v(row, 'Pref19');
     final lobName = _v(row, 'Pref11');
+    final matchedCity = _matchCity(
+      provinceCode: provinceCode,
+      cityCode: cityCode,
+      cityName: cityName,
+    );
     setState(() {
       _name.text = _v(row, 'Pref3').isEmpty ? _name.text : _v(row, 'Pref3');
       _phone.text = _v(row, 'Pref2').isEmpty ? _phone.text : _v(row, 'Pref2');
@@ -136,19 +177,22 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       } else if (lobName.isNotEmpty) {
         _lob = _lobs.where((item) => item.name == lobName).firstOrNull ?? _lob;
       }
-      if (cityCode.isNotEmpty) {
-        _city = _cities.where((item) => item.cityCode == cityCode).firstOrNull ?? _city;
-      } else if (cityName.isNotEmpty) {
-        _city = _cities.where((item) => item.cityName == cityName).firstOrNull ?? _city;
-      }
+      if (matchedCity != null) _city = matchedCity;
     });
-    _reloadDistricts(preferredName: districtName, preferredCode: districtCode);
+    await _reloadDistricts(
+      preferredName: districtName,
+      preferredCode: districtCode,
+      provinceCode: matchedCity?.provinceCode ?? provinceCode,
+      cityCode: matchedCity?.cityCode ?? cityCode,
+    );
   }
 
-  void _applyCustomer(Map<String, String> row) {
+  Future<void> _applyCustomer(Map<String, String> row) async {
     final cityName = _v(row, 'Pref8');
     final districtName = _v(row, 'Pref9');
     final top = _v(row, 'Pref10');
+    // Jangan overwrite kota/district dari ProspectHistory
+    final keepCity = _city != null;
     setState(() {
       _name.text = _v(row, 'Pref2').isEmpty ? _name.text : _v(row, 'Pref2');
       if (_v(row, 'Pref3').isNotEmpty) _birth = _v(row, 'Pref3');
@@ -156,33 +200,53 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
       _phone.text = _v(row, 'Pref6').isEmpty ? _phone.text : _v(row, 'Pref6');
       if (_v(row, 'Pref7').isNotEmpty) _phone2.text = _v(row, 'Pref7');
       if (top == 'Cash' || top == 'Credit') _top = top;
-      if (cityName.isNotEmpty) {
-        _city = _cities.where((item) => item.cityName == cityName).firstOrNull ?? _city;
+      if (!keepCity && cityName.isNotEmpty) {
+        _city = _matchCity(cityName: cityName) ?? _city;
       }
     });
-    _reloadDistricts(preferredName: districtName);
+    if (!keepCity) {
+      await _reloadDistricts(preferredName: districtName);
+    }
   }
 
   Future<void> _reloadDistricts({
     String preferredName = '',
     String preferredCode = '',
+    String provinceCode = '',
+    String cityCode = '',
   }) async {
-    if (_city == null) return;
+    final prov = provinceCode.isNotEmpty
+        ? provinceCode
+        : (_city?.provinceCode ?? '');
+    final city = cityCode.isNotEmpty ? cityCode : (_city?.cityCode ?? '');
+    if (prov.isEmpty || city.isEmpty) return;
     final items = await context.read<MasterDataProvider>().getDistricts(
-          provinceCode: _city!.provinceCode,
-          cityCode: _city!.cityCode,
+          provinceCode: prov,
+          cityCode: city,
         );
     if (!mounted) return;
     setState(() {
       _districts = items;
       DistrictItem? match;
       if (preferredCode.isNotEmpty) {
-        match = items.where((item) => item.districtCode == preferredCode).firstOrNull;
+        match = items
+            .where((item) => _codeEq(item.districtCode, preferredCode))
+            .firstOrNull;
       }
       if (match == null && preferredName.isNotEmpty) {
-        match = items.where((item) => item.districtName == preferredName).firstOrNull;
+        final want = preferredName.trim().toLowerCase();
+        match = items
+            .where((item) => item.districtName.trim().toLowerCase() == want)
+            .firstOrNull;
       }
-      _district = match ?? (items.isNotEmpty ? items.first : null);
+      // Jangan fallback ke items.first jika ada preferred — biar tidak salah district
+      if (match != null) {
+        _district = match;
+      } else if (preferredCode.isEmpty && preferredName.isEmpty) {
+        _district = items.isNotEmpty ? items.first : null;
+      } else {
+        _district = null;
+      }
     });
   }
 
@@ -324,7 +388,9 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
                 ),
                 const SizedBox(height: 14),
                 AppAutoText<CityItem>(
-                  key: ValueKey('hp-city-${_city?.cityCode ?? ''}'),
+                  key: ValueKey(
+                    'hp-city-${_city?.provinceCode ?? ''}-${_city?.cityCode ?? ''}',
+                  ),
                   label: 'City',
                   value: _city,
                   items: _cities,
@@ -335,13 +401,16 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
                       _city = item;
                       _district = null;
                     });
-                    _reloadDistricts();
+                    _reloadDistricts(
+                      provinceCode: item.provinceCode,
+                      cityCode: item.cityCode,
+                    );
                   },
                 ),
                 const SizedBox(height: 14),
                 AppAutoText<DistrictItem>(
                   key: ValueKey(
-                    'hp-district-${_city?.cityCode ?? ''}-${_district?.districtCode ?? ''}',
+                    'hp-district-${_city?.provinceCode ?? ''}-${_city?.cityCode ?? ''}-${_district?.districtCode ?? ''}',
                   ),
                   label: 'District',
                   value: _district,

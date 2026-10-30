@@ -249,6 +249,7 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     }
 
     // Pref16 Province, Pref17 CityCode, Pref18 DistrictCode
+    final provinceCode = v('Pref16');
     final cityCode = v('Pref17');
     final cityName = v('Pref6');
     final districtCode = v('Pref18');
@@ -256,6 +257,19 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
     final address = v('Pref4');
     final birth = v('Pref8');
     final religion = v('Pref9');
+    CityItem? matchedCity;
+    if (cityCode.isNotEmpty) {
+      matchedCity = _cities.where((item) {
+        if (item.cityCode != cityCode) return false;
+        if (provinceCode.isNotEmpty && item.provinceCode != provinceCode) {
+          return false;
+        }
+        return true;
+      }).firstOrNull;
+    }
+    matchedCity ??= cityName.isEmpty
+        ? null
+        : _cities.where((item) => item.cityName == cityName).firstOrNull;
     setState(() {
       _name.text = v('Pref3').isEmpty ? _name.text : v('Pref3');
       _phone.text = v('Pref2').isEmpty ? _phone.text : v('Pref2');
@@ -271,15 +285,7 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
       if (v('Pref13').isNotEmpty) _fgocName.text = v('Pref13');
       if (v('Pref14').isNotEmpty) _fgocPhone.text = v('Pref14');
       if (v('Pref15').isNotEmpty) _fgocPosition.text = v('Pref15');
-      if (cityCode.isNotEmpty) {
-        _city =
-            _cities.where((item) => item.cityCode == cityCode).firstOrNull ??
-            _city;
-      } else if (cityName.isNotEmpty) {
-        _city =
-            _cities.where((item) => item.cityName == cityName).firstOrNull ??
-            _city;
-      }
+      if (matchedCity != null) _city = matchedCity;
     });
     await _reloadDistricts(
       preferredCode: districtCode,
@@ -342,7 +348,9 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
       if (v('Pref14').isNotEmpty) _desc.text = v('Pref14');
       _faktur = v('Pref15') == '1';
       if (v('Pref16').isNotEmpty) _fakturName.text = v('Pref16');
-      if (v('Pref17').isNotEmpty) _dp.text = v('Pref17');
+      if (v('Pref17').isNotEmpty) {
+        _dp.text = v('Pref17').replaceAll(RegExp(r'[^0-9]'), '');
+      }
       if (v('Pref18').isNotEmpty) {
         _price.text = v('Pref18').replaceAll(RegExp(r'[^0-9]'), '');
       }
@@ -846,6 +854,7 @@ class _SpkFormScreenState extends State<SpkFormScreen> {
                   controller: _dp,
                   label: 'DP',
                   keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   prefixIcon: Icons.savings_outlined,
                 ),
                 const SizedBox(height: 14),
