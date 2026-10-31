@@ -6,6 +6,8 @@ class AppConfig {
   static const String dbName = 'NewMMDacen';
   static const String getUserUrl =
       'https://api.sinergiteknologi.co.id/NewMMSDMobileServices/mobileservices.asmx';
+
+      
   static const String defaultCabang = '0001';
   static const int currentVersionCode = 117;
   static const String currentVersionName = '10.16';

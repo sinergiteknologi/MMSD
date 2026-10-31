@@ -89,6 +89,13 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
   int _fgocRequestId = 0;
   int _picRequestId = 0;
 
+  /// FGOC hanya untuk UserStatus BM / GM
+  bool get _canUseFgoc {
+    final status =
+        (context.read<AuthProvider>().user?.userStatus ?? '').trim().toUpperCase();
+    return status == 'BM' || status == 'GM';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -105,6 +112,11 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
         _city = cities.isNotEmpty ? cities.first : null;
         _fgocTypes = fleets;
         _fgocType = fleets.isNotEmpty ? fleets.first : null;
+        // Non BM/GM tidak boleh mode FGOC
+        if (!_canUseFgoc && _company) {
+          _company = false;
+          _clearFGOCSelection();
+        }
       });
     });
   }
@@ -379,6 +391,13 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
   Future<void> _next() async {
     final user = context.read<AuthProvider>().user;
     if (user == null) return;
+    if (_company && !_canUseFgoc) {
+      setState(() {
+        _company = false;
+        _clearFGOCSelection();
+      });
+      return;
+    }
     if (_company) {
       if (_fgocName.text.trim().isEmpty ||
           _fgocPicName.text.trim().isEmpty ||
@@ -539,25 +558,27 @@ class _ProspectFormScreenState extends State<ProspectFormScreen> {
                           });
                         },
                       ),
-                      const SizedBox(width: 10),
-                      ChoiceChip(
-                        label: const Text('FGOC'),
-                        selected: _company,
-                        onSelected: (_) {
-                          setState(() {
-                            _company = true;
-                            _searched = false;
-                            _showForm = false;
-                            _customers = [];
-                            _selectedId = '';
-                            _name.clear();
-                            _phone.clear();
-                            _phone2.clear();
-                            _idNo.clear();
-                            _clearFGOCSelection();
-                          });
-                        },
-                      ),
+                      if (_canUseFgoc) ...[
+                        const SizedBox(width: 10),
+                        ChoiceChip(
+                          label: const Text('FGOC'),
+                          selected: _company,
+                          onSelected: (_) {
+                            setState(() {
+                              _company = true;
+                              _searched = false;
+                              _showForm = false;
+                              _customers = [];
+                              _selectedId = '';
+                              _name.clear();
+                              _phone.clear();
+                              _phone2.clear();
+                              _idNo.clear();
+                              _clearFGOCSelection();
+                            });
+                          },
+                        ),
+                      ],
                     ],
                   ),
                   if (!_company) ...[
