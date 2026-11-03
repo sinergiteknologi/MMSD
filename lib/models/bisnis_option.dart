@@ -1,12 +1,12 @@
 class BisnisOption {
   final String code;
   final String name;
-  final String server;
+  final String dbServer;
 
   const BisnisOption({
     required this.code,
     required this.name,
-    required this.server,
+    required this.dbServer,
   });
 
   @override
@@ -14,8 +14,8 @@ class BisnisOption {
       other is BisnisOption &&
       other.code == code &&
       other.name == name &&
-      other.server == server;
+      other.dbServer == dbServer;
 
   @override
-  int get hashCode => Object.hash(code, name, server);
+  int get hashCode => Object.hash(code, name, dbServer);
 }

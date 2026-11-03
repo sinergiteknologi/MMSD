@@ -24,10 +24,10 @@ class ProspectProvider with ChangeNotifier, SafeNotifier {
   List<Map<String, String>> get rows => _rows;
 
   Future<void> _ensureConfigured() async {
-    final server = await _prefService.getString(PrefService.keyServer);
+    final dbServer = await _prefService.getDbServer();
     final bisnis = await _prefService.getString(PrefService.keyBisnis);
-    if (server.isNotEmpty && bisnis.isNotEmpty) {
-      _apiService.configure(server: server, bisnis: bisnis);
+    if (dbServer.isNotEmpty && bisnis.isNotEmpty) {
+      _apiService.configure(dbServer: dbServer, bisnis: bisnis);
     }
   }
 

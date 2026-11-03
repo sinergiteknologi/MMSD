@@ -6,26 +6,27 @@ class ApiService {
 
   final RestClient _client;
   String _bisnis = '';
+  String _dbServer = AppConfig.dbServer;
 
-  void configure({required String server, required String bisnis}) {
+  void configure({required String dbServer, required String bisnis}) {
     _bisnis = bisnis;
-    _client.baseUrl = AppConfig.serviceUrl(server);
+    _dbServer = dbServer.trim();
+    _client.baseUrl = AppConfig.defaultServiceUrl();
   }
-  
-  void updateBaseUrl(String url) {
-    _client.baseUrl = AppConfig.serviceUrl(url);
-  }
+
+  bool get hasDbServer => _dbServer.isNotEmpty && _dbServer != '-';
 
   String get bisnis => _bisnis;
+  String get dbServer => _dbServer;
   RestFailure? get lastFailure => _client.lastFailure;
   String get lastErrorMessage =>
       _client.lastFailure?.message ?? 'Layanan tidak memberikan respons.';
 
-  static const Map<String, String> _mobileDbConfig = {
-    'DB_SERVER': AppConfig.dbServer,
-    'DB_NAME': AppConfig.dbName,
-    'GETUSER_URL': AppConfig.getUserUrl,
-  };
+  Map<String, String> get _mobileDbConfig => {
+        'DB_SERVER': _dbServer,
+        'DB_NAME': AppConfig.dbName,
+        'GETUSER_URL': AppConfig.getUserUrl,
+      };
 
   Future<String?> _call(String method, [Map<String, String>? params]) {
     return _client.postJson(

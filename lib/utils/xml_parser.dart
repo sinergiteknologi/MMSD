@@ -130,19 +130,22 @@ class XmlParser {
   static List<BisnisOption> parseBisnis(String xmlString) {
     final codes = parsePipeDelimited(xmlString, 'Pref1');
     final names = parsePipeDelimited(xmlString, 'Pref2');
-    final servers = parsePipeDelimited(xmlString, 'Pref3');
+    final dbServers = parsePipeDelimited(xmlString, 'Pref3');
     final length = [
       codes.length,
       names.length,
-      servers.length,
+      dbServers.length,
     ].reduce((a, b) => a < b ? a : b);
     return List.generate(
       length,
-      (index) => BisnisOption(
-        code: codes[index],
-        name: names[index],
-        server: servers[index],
-      ),
+      (index) {
+        final raw = dbServers[index].trim();
+        return BisnisOption(
+          code: codes[index],
+          name: names[index],
+          dbServer: (raw.isEmpty || raw == '-') ? '' : raw,
+        );
+      },
     );
   }
 

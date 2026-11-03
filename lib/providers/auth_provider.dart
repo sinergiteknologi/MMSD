@@ -57,7 +57,7 @@ class AuthProvider with ChangeNotifier {
     _bisnisList = [];
     notifyListeners();
     try {
-      _apiService.configure(server: AppConfig.defaultServiceHost, bisnis: '');
+      _apiService.configure(dbServer: AppConfig.dbServer, bisnis: '');
       final response = await _apiService.getBisnis();
       if (response != null) {
         _bisnisList = XmlParser.parseBisnis(response);
@@ -81,9 +81,9 @@ class AuthProvider with ChangeNotifier {
     final username = await _prefService.getString(PrefService.keyUsername);
     final busCode = await _prefService.getString(PrefService.keyBusCode);
     if (username.isEmpty || busCode.isEmpty) return false;
-    final server = await _prefService.getString(PrefService.keyServer);
+    final dbServer = await _prefService.getDbServer();
     final bisnis = await _prefService.getString(PrefService.keyBisnis);
-    _apiService.configure(server: server, bisnis: bisnis);
+    _apiService.configure(dbServer: dbServer, bisnis: bisnis);
     _user = UserModel(
       username: username,
       password: await _prefService.getString(PrefService.keyPassword),
@@ -119,9 +119,18 @@ class AuthProvider with ChangeNotifier {
         userName = userName.replaceAll('#', '');
       }
 
-      await _prefService.saveServer(bisnis.server, bisnis.code);
-      _apiService.configure(server: bisnis.server, bisnis: bisnis.code);
-      print('apiService.configure: ${bisnis.server} ${bisnis.code}');
+      final ipServer = bisnis.dbServer.trim();
+      if (ipServer.isEmpty || ipServer == '-') {
+        _errorMessage =
+            'IPServer bisnis kosong. Tidak dapat terhubung ke database.';
+        _isLoading = false;
+        _loadingMessage = '';
+        notifyListeners();
+        return false;
+      }
+
+      await _prefService.saveDbServer(ipServer, bisnis.code);
+      _apiService.configure(dbServer: ipServer, bisnis: bisnis.code);
       final response = await _apiService.login(
         sCabang: cabang,
         sUser: userName,
@@ -209,7 +218,7 @@ class AuthProvider with ChangeNotifier {
     _user = null;
     _bisnisList = [];
     _setMainAuthority('');
-    _apiService.configure(server: AppConfig.defaultServiceHost, bisnis: '');
+    _apiService.configure(dbServer: AppConfig.dbServer, bisnis: '');
     notifyListeners();
   }
 }

@@ -17,7 +17,7 @@ void main() {
           return http.Response('{"Versi":{"Versi":"117"}}', 200);
         }),
       ),
-    )..configure(server: 'business.example', bisnis: 'MM');
+    )..configure(dbServer: '100.1.2.3', bisnis: 'MM');
 
     await api.getVersi();
 
@@ -39,15 +39,22 @@ void main() {
           return http.Response('{"Login":{"KodeCabang":"001"}}', 200);
         }),
       ),
-    )..configure(server: 'business.example', bisnis: 'A&B');
+    )..configure(dbServer: '100.1.2.3', bisnis: 'A&B');
 
     await api.login(sCabang: '0001', sUser: 'a<b', sPwd: 'x&y');
 
     final body = jsonDecode(captured.body) as Map<String, dynamic>;
+    expect(body['DB_SERVER'], '100.1.2.3');
     expect(body['sBisnis'], 'A&B');
     expect(body['sCabang'], '0001');
     expect(body['sUser'], 'a<b');
     expect(body['sPwd'], 'x&y');
+    expect(
+      captured.url,
+      Uri.parse(
+        '${AppConfig.defaultServiceUrl()}/ApiNewMMSDMobile/api/mobile/Login',
+      ),
+    );
   });
 
   test('fleet report uses the legacy field names', () async {
@@ -59,7 +66,7 @@ void main() {
           return http.Response('{"DataPref":{"Pref1":""}}', 200);
         }),
       ),
-    )..configure(server: 'business.example', bisnis: 'MM');
+    )..configure(dbServer: '100.1.2.3', bisnis: 'MM');
 
     await api.getReportFleetDetail({
       'prmSP': 'Fleet DetailSales',

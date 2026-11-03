@@ -2,7 +2,7 @@ class AppConfig {
   static const String defaultServiceHost = 'api.sinergiteknologi.co.id';
   static const String defaultServiceBaseUrl =
       'https://api.sinergiteknologi.co.id/ApiNewMMSDMobile';
-  static const String dbServer = '100.120.64.117';
+  static const String dbServer = '100.94.95.63';
   static const String dbName = 'NewMMDacen';
   static const String getUserUrl =
       'https://api.sinergiteknologi.co.id/NewMMSDMobileServices/mobileservices.asmx';

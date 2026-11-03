@@ -14,8 +14,9 @@ class PrefService {
   static const String keyBusNameAut = 'USER_BUSNAMEAUT';
   static const String keyUserStatus = 'USER_STATUS';
   static const String keyMainAut = 'USER_MAINAUT';
-  static const String keyServer = 'APP_SERVER';
+  static const String keyDbServer = 'APP_DB_SERVER';
   static const String keyBisnis = 'APP_BISNIS';
+  static const String _legacyKeyServer = 'APP_SERVER';
   static const String keyFilterStatus = 'APP_FILTER_STATUS';
   static const String keyHisIdNo = 'APP_HIS_IDNO';
   static const String keyHisHistoryId = 'APP_HIS_HISTORYID';
@@ -64,9 +65,15 @@ class PrefService {
     return value == 'YES' || value.toLowerCase() == 'true';
   }
 
-  Future<void> saveServer(String server, String bisnis) async {
-    await setString(keyServer, server);
+  Future<void> saveDbServer(String dbServer, String bisnis) async {
+    await setString(keyDbServer, dbServer);
     await setString(keyBisnis, bisnis);
+  }
+
+  Future<String> getDbServer() async {
+    final value = await getString(keyDbServer);
+    if (value.isNotEmpty) return value;
+    return getString(_legacyKeyServer);
   }
 
   Future<void> saveLoginData({
