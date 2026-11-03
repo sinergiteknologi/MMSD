@@ -1,34 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="description" content="MMSD - Mobile Sales Desk">
   <meta name="theme-color" content="#12263A">
 
-  <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="MMSD">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>MMSD</title>
@@ -61,14 +49,93 @@
   </script>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <script>
+    (async function () {
+      var STORAGE_KEY = 'mmsd_web_build';
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="flutter_bootstrap.js" async></script>
+      async function clearAssetCaches() {
+        try {
+          if ('serviceWorker' in navigator) {
+            var regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(function (r) { return r.unregister(); }));
+          }
+        } catch (_) {}
+        try {
+          if ('caches' in window) {
+            var keys = await caches.keys();
+            await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+          }
+        } catch (_) {}
+      }
+
+      async function clearAppData() {
+        try {
+          if (indexedDB && indexedDB.databases) {
+            var dbs = await indexedDB.databases();
+            await Promise.all(
+              (dbs || []).map(function (db) {
+                return new Promise(function (resolve) {
+                  if (!db || !db.name) return resolve();
+                  var req = indexedDB.deleteDatabase(db.name);
+                  req.onsuccess = req.onerror = req.onblocked = function () { resolve(); };
+                });
+              })
+            );
+          }
+        } catch (_) {}
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+        } catch (_) {}
+      }
+
+      async function readRemoteStamp() {
+        var res = await fetch('version.json?_=' + Date.now(), {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+        });
+        if (!res.ok) return '';
+        var remote = await res.json();
+        return String(remote.build_number || '') + '|' + String(remote.version || '');
+      }
+
+      function loadFlutter(stamp) {
+        var script = document.createElement('script');
+        script.src = 'flutter_bootstrap.js?v=' + encodeURIComponent(stamp || String(Date.now()));
+        script.async = true;
+        document.body.appendChild(script);
+      }
+
+      try {
+        var stamp = await readRemoteStamp();
+        var prev = '';
+        try { prev = localStorage.getItem(STORAGE_KEY) || ''; } catch (_) {}
+
+        if (stamp && prev && prev !== stamp) {
+          await clearAssetCaches();
+          await clearAppData();
+          try { localStorage.setItem(STORAGE_KEY, stamp); } catch (_) {}
+          location.replace(
+            location.pathname +
+              '?v=' + encodeURIComponent(stamp) +
+              location.hash
+          );
+          return;
+        }
+
+        if (stamp && !prev) {
+          try { localStorage.setItem(STORAGE_KEY, stamp); } catch (_) {}
+        }
+
+        await clearAssetCaches();
+        if (stamp) {
+          try { localStorage.setItem(STORAGE_KEY, stamp); } catch (_) {}
+        }
+        loadFlutter(stamp);
+      } catch (_) {
+        loadFlutter('');
+      }
+    })();
+  </script>
 </body>
 </html>

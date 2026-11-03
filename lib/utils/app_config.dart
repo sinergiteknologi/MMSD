@@ -9,7 +9,7 @@ class AppConfig {
 
       
   static const String defaultCabang = '0001';
-  static const int currentVersionCode = 117;
+  static const int currentVersionCode = 116;
   static const String currentVersionName = '10.16';
   static const String androidPackageName = 'com.smartsoft.NewMMSD';
 
