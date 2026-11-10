@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_theme.dart';
+import '../utils/date_format.dart';
 
 class MeshBackground extends StatelessWidget {
   const MeshBackground({super.key, required this.child});
@@ -425,11 +426,15 @@ class AppDateField extends StatelessWidget {
     return InkWell(
       onTap: () async {
         final now = DateTime.now();
+        final first = firstDate ?? DateTime(1900);
+        final last = lastDate ?? DateTime(now.year + 50, 12, 31);
+        final parsed = AppDateFormat.tryParseMdy(value);
+        final initial = AppDateFormat.clampDate(parsed ?? now, first, last);
         final picked = await showDatePicker(
           context: context,
-          initialDate: now,
-          firstDate: firstDate ?? DateTime(now.year - 5),
-          lastDate: lastDate ?? DateTime(now.year + 5),
+          initialDate: initial,
+          firstDate: first,
+          lastDate: last,
         );
         if (picked != null) onPicked(picked);
       },

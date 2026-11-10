@@ -35,12 +35,24 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  BisnisOption? _resolveSelected(List<BisnisOption> items) {
+    final code = _selected?.code;
+    if (code != null) {
+      for (final item in items) {
+        if (item.code == code) return item;
+      }
+    }
+    return items.isNotEmpty ? items.first : null;
+  }
+
   Future<void> _submit() async {
     final auth = context.read<AuthProvider>();
-    final selected =
-        _selected ??
-        (auth.bisnisList.isNotEmpty ? auth.bisnisList.first : null);
+    // Ambil ulang GetDataBisnis supaya IPServer terbaru (bukan cache list lama)
+    await auth.loadBisnis();
+    if (!mounted) return;
+    final selected = _resolveSelected(auth.bisnisList);
     if (selected == null) return;
+    setState(() => _selected = selected);
     final success = await auth.login(
       bisnis: selected,
       username: _userController.text.trim(),
@@ -67,9 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final items = auth.bisnisList;
-    final value = _selected != null && items.contains(_selected)
-        ? _selected
-        : (items.isNotEmpty ? items.first : null);
+    final value = _resolveSelected(items);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
@@ -113,7 +123,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             DropdownButtonFormField<BisnisOption>(
                               key: ValueKey(
-                                items.map((item) => item.code).join('|'),
+                                items
+                                    .map((item) => '${item.code}:${item.dbServer}')
+                                    .join('|'),
                               ),
                               initialValue: value,
                               isExpanded: true,

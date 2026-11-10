@@ -1,7 +1,31 @@
 class AppDateFormat {
   static String mdy(DateTime date) => '${date.month}/${date.day}/${date.year}';
 
-  /// Tanggal hari ini tanpa jam (untuk TranDate dll).
+  static DateTime? tryParseMdy(String value) {
+    final parts = value.trim().split(RegExp(r'[\/\-]'));
+    if (parts.length < 3) return null;
+    final month = int.tryParse(parts[0]);
+    final day = int.tryParse(parts[1]);
+    var year = int.tryParse(parts[2]);
+    if (month == null || day == null || year == null) return null;
+    if (year < 100) year += 2000;
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    try {
+      return DateTime(year, month, day);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static DateTime clampDate(DateTime date, DateTime first, DateTime last) {
+    final d = DateTime(date.year, date.month, date.day);
+    final f = DateTime(first.year, first.month, first.day);
+    final l = DateTime(last.year, last.month, last.day);
+    if (d.isBefore(f)) return f;
+    if (d.isAfter(l)) return l;
+    return d;
+  }
+
   static String todayMdy() {
     final now = DateTime.now();
     return mdy(DateTime(now.year, now.month, now.day));

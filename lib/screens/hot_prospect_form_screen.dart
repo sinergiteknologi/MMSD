@@ -580,6 +580,8 @@ class _HotProspectFormScreenState extends State<HotProspectFormScreen> {
                 AppDateField(
                   label: 'Birth Date',
                   value: _birth,
+                  firstDate: DateTime(1920),
+                  lastDate: DateTime.now(),
                   onPicked: (date) =>
                       setState(() => _birth = AppDateFormat.mdy(date)),
                 ),
