@@ -51,7 +51,15 @@
 <body>
   <script>
     (async function () {
-      var STORAGE_KEY = 'mmsd_web_build';
+      var STORAGE_KEY = 'mmsd_db_version';
+      var VERSI_URL =
+        'https://api.sinergiteknologi.co.id/ApiNewMMSDMobile/api/mobile/Versi';
+      var DB_BOOTSTRAP = {
+        DB_SERVER: '100.94.95.63',
+        DB_NAME: 'NewMMDacen',
+        GETUSER_URL:
+          'https://api.sinergiteknologi.co.id/NewMMSDMobileServices/mobileservices.asmx',
+      };
 
       async function clearAssetCaches() {
         try {
@@ -89,7 +97,32 @@
         } catch (_) {}
       }
 
-      async function readRemoteStamp() {
+      async function readDbVersionStamp() {
+        var res = await fetch(VERSI_URL + '?_=' + Date.now(), {
+          method: 'POST',
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+          },
+          body: JSON.stringify(DB_BOOTSTRAP),
+        });
+        if (!res.ok) return '';
+        var json = await res.json();
+        var raw =
+          (json && json.Versi && (json.Versi.Versi || json.Versi)) ||
+          json.Versi ||
+          '';
+        raw = String(raw || '').trim();
+        if (!raw) return '';
+        // Format DB: 116/10.16/False → stamp kode+nama
+        var parts = raw.split('/');
+        if (parts.length >= 2) return parts[0].trim() + '|' + parts[1].trim();
+        return raw;
+      }
+
+      async function readBuildStamp() {
         var res = await fetch('version.json?_=' + Date.now(), {
           cache: 'no-store',
           headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
@@ -97,6 +130,18 @@
         if (!res.ok) return '';
         var remote = await res.json();
         return String(remote.build_number || '') + '|' + String(remote.version || '');
+      }
+
+      async function readRemoteStamp() {
+        try {
+          var dbStamp = await readDbVersionStamp();
+          if (dbStamp) return dbStamp;
+        } catch (_) {}
+        try {
+          return await readBuildStamp();
+        } catch (_) {
+          return '';
+        }
       }
 
       function loadFlutter(stamp) {
